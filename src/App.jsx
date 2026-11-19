@@ -2032,8 +2032,45 @@ function ShelterBadges({ pet, withChip = false, className = '' }) {
   );
 }
 
+// Мини-сбор для карточки каталога: одна строка текста и полоска (полный блок — в анкете)
+function CardFundraiser({ collected, goal, purpose }) {
+  const pct = Math.min(100, Math.round((collected / goal) * 100));
+  const done = collected >= goal;
+  return (
+    <div className="rounded-2xl border ap-line ap-surface px-3 py-2.5">
+      <div className="flex items-center justify-between gap-2 text-xs font-bold">
+        <span className="min-w-0 truncate ap-text-soft">{done ? 'Сбор закрыт 🎉' : `Идёт сбор${purpose ? ` на ${purpose}` : ''}`}</span>
+        <span className={`shrink-0 ${done ? 'ap-text-sage-deep' : 'ap-text-accent'}`}>{pct}%</span>
+      </div>
+      <div className="mt-2 h-2 w-full overflow-hidden rounded-full ap-track-off">
+        <div className={`h-full rounded-full ${done ? 'ap-sage-fill' : 'ap-progress-fill'}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+// Раскладка тегов в ровную сетку из двух колонок: короткие теги встают парами, длинный занимает ряд целиком.
+// Берём теги по порядку важности, пока хватает рядов. Возвращает [{ tag, wide }].
+const LONG_TAG_CHARS = 13;
+
+function packTags(tags, maxRows) {
+  const rows = [];
+  tags.forEach((tag) => {
+    if (tag.length > LONG_TAG_CHARS) {
+      if (rows.length < maxRows) rows.push([tag]);
+      return;
+    }
+    const halfRow = rows.find((row) => row.length === 1 && row[0].length <= LONG_TAG_CHARS);
+    if (halfRow) halfRow.push(tag);
+    else if (rows.length < maxRows) rows.push([tag]);
+  });
+  return rows.flatMap((row) => row.map((tag) => ({ tag, wide: tag.length > LONG_TAG_CHARS })));
+}
+
 function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
-  const tags = sortTagsByCategory(splitTags(pet.character_tags)).slice(0, 4);
+  // Если идёт сбор, место под теги отдаём полоске сбора: 2 тега (один ряд) вместо 4 (два ряда)
+  const hasFundraiser = pet.fundraising_goal_kzt > 0;
+  const tags = packTags(sortTagsByCategory(splitTags(pet.character_tags)), hasFundraiser ? 1 : 2);
   // Обложка 4:3 с умным кадрированием (для Cloudinary) и запасными фото
   const coverSrc = getSmartPhotoUrl(pet.photo_url);
   const coverFallbacks = useMemo(() => (pet.photos || []).map(getSmartPhotoUrl), [pet.photos]);
@@ -2083,14 +2120,23 @@ function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
       <div className="flex flex-1 flex-col gap-3 p-5">
         <h3 className="text-2xl font-bold tracking-tight ap-text-main">{pet.name}</h3>
 
+        {/* Ровная сетка: короткие теги по два в ряд, длинный — на весь ряд; не больше двух рядов (одного, если идёт сбор) */}
         {tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {tags.map((t) => (
-              <span key={t} className={`rounded-full px-3 py-1 text-xs font-bold ${tagClass(t)}`}>
-                {t}
+          <div className="grid grid-cols-2 gap-1.5">
+            {tags.map(({ tag, wide }) => (
+              <span
+                key={tag}
+                title={tag}
+                className={`truncate rounded-full px-2.5 py-1 text-center text-xs font-bold ${wide ? 'col-span-2' : ''} ${tagClass(tag)}`}
+              >
+                {tag}
               </span>
             ))}
           </div>
+        )}
+
+        {hasFundraiser && (
+          <CardFundraiser collected={pet.fundraising_collected_kzt} goal={pet.fundraising_goal_kzt} purpose={pet.fundraising_purpose} />
         )}
 
         <div className="mt-auto flex gap-2 pt-1">
