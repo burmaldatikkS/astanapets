@@ -505,10 +505,19 @@ function shelterFromPet(p) {
 }
 
 // Приводит строку из таблицы к нужным типам (в Google Таблице всё приходит строками)
+// Ссылки Google Диска вида «/file/d/ID/view» или «open?id=ID» ведут на страницу, а не на картинку.
+// Превращаем их в прямую ссылку на изображение (файл должен быть открыт «всем, у кого есть ссылка»).
+function normalizePhotoUrl(url) {
+  const u = String(url ?? '').trim();
+  const drive = u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=\w+&)?id=)([\w-]{10,})/);
+  if (drive) return `https://drive.google.com/thumbnail?id=${drive[1]}&sz=w1600`;
+  return u;
+}
+
 // photo_url → массив ссылок. Разделители: «|», перенос строки или запятая с пробелом
 function parsePhotos(value) {
   const list = Array.isArray(value) ? value : String(value ?? '').split(/\s*\|\s*|\r?\n|,\s+/);
-  const photos = list.map((url) => String(url ?? '').trim()).filter(Boolean);
+  const photos = list.map(normalizePhotoUrl).filter(Boolean);
   return photos.length > 0 ? photos : [FALLBACK_PHOTO];
 }
 
@@ -715,22 +724,28 @@ const isFiltersDirty = (f) => Object.keys(DEFAULT_FILTERS).some((k) => f[k] !== 
 /* =====================================================================
  * 5. СТИЛИ, ШРИФТ И АНИМАЦИИ
  * ---------------------------------------------------------------------
- * Концепция «Тёплый дом и солнечный свет».
+ * Палитра Coolors из 5 цветов + шрифт Plus Jakarta Sans / Rubik.
  * Все фирменные цвета заданы семантическими CSS-классами с префиксом .ap-
  * (см. GLOBAL_CSS), без произвольных классов Tailwind в квадратных скобках.
- *   #FAF7F2 — кремовый фон страницы   #FFFFFF — молочно-белые карточки
- *   #2C2A29 — графитовый текст        #F26A4B — кораллово-оранжевый акцент
- *   #4CAF7D — яблочно-зелёный акцент (проверка, здоровье, сборы)
+ *   #FEFAE0 — сливочный крем (шапка, первый экран), карточки #FFFDF5
+ *   #606C38 — оливково-мшистый (главные действия, активные фильтры)
+ *   #283618 — глубокий хвойный (текст, блок «Помочь приютам», карточки #344620)
+ *   #DDA15E — медовый песок (сборы, «Ищет семью», проверка; фон каталога #F4EBD9)
+ *   #BC6C25 — тёплая карамель («Помочь приюту», сердечки, счётчики фильтров)
  * ===================================================================== */
 
 const GLOBAL_CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800&display=swap&subset=cyrillic');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Rubik:wght@400;500;600;700&display=swap');
 
-/* ---------- Каркас и шрифт ---------- */
+/* ---------- Каркас и шрифт ----------
+   Plus Jakarta Sans не содержит кириллицы, поэтому русские буквы браузер берёт из Rubik,
+   а латиница и цифры остаются в Plus Jakarta Sans. */
 .ap-root, .ap-root button, .ap-root input, .ap-root a, .ap-root label {
-  font-family: 'Nunito', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Rubik', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
-.ap-root { background-color: #FAF7F2; color: #2C2A29; }
+.ap-root { background-color: #FEFAE0; color: #283618; -webkit-font-smoothing: antialiased; }
+/* Воздушный основной текст; :where() не перебивает явные классы leading-* */
+:where(.ap-root) p, :where(.ap-root) li, :where(.ap-root) blockquote { line-height: 1.65; }
 
 /* Защита от горизонтального скролла на телефонах.
    overflow-x: clip режет лишнее так же, как hidden, но не ломает «липкую» шапку (position: sticky).
@@ -742,94 +757,123 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   .ap-clip-x { overflow-x: clip; }
 }
 
+/* ---------- Цветовые блоки секций ---------- */
+.ap-cream-block { background-color: #FEFAE0; }        /* шапка и первый экран — сливочный крем */
+.ap-catalog-block { background-color: #F4EBD9; }      /* каталог — разбавленный медовый песок */
+.ap-forest-block { background-color: #283618; color: #FEFAE0; }  /* «Помочь приютам» — глубокий хвойный */
+.ap-footer { background-color: #FEFAE0; }
+
 /* ---------- Текст ---------- */
-.ap-text-main { color: #2C2A29; }
-.ap-text-accent { color: #D9502F; }          /* коралловый, чуть темнее для читаемости текста */
-.ap-text-sage-deep { color: #2E8A5A; }       /* зелёный для иконок и мелкого текста */
-.ap-text-sage { color: #7DDBA8; }
-.ap-link:hover { color: #2C2A29; }
+.ap-text-main { color: #283618; }          /* глубокий хвойный */
+.ap-text-strong { color: #3A4527; }
+.ap-text-muted { color: #565E42; }
+.ap-text-soft { color: #737860; }
+.ap-text-faint { color: #9A9C84; }
+.ap-ivory-text { color: #FEFAE0; }
+.ap-fill-ivory { fill: #FEFAE0; }
+.ap-text-accent { color: #A45B1C; }        /* карамель, чуть темнее для читаемости текста */
+.ap-text-sage-deep { color: #606C38; }     /* оливково-мшистый */
+.ap-text-sage { color: #DDA15E; }
+.ap-ok { color: #606C38; }
+.ap-no { color: #BC6C25; }
+.ap-link:hover { color: #283618; }
 .ap-prose { line-height: 1.8; }
 
-/* ---------- Поверхности ---------- */
-.ap-surface { background-color: #FAF7F2; }
-.ap-sand { background-color: #F0EAE1; }
-.ap-sand-deep { background-color: #E7DFD3; }
-.ap-modal-bg { background-color: #FAF7F2; }
-.ap-header-glass { background-color: rgba(250, 247, 242, 0.85); }
-.ap-glass { background-color: rgba(250, 247, 242, 0.92); }
-.ap-overlay { background-color: rgba(44, 42, 41, 0.45); }
+/* Текст на хвойном блоке */
+.ap-on-dark { color: #FEFAE0; }
+.ap-on-dark-muted { color: #DCDDC3; }
+.ap-on-dark-soft { color: #B9BC9C; }
 
-/* Порядок важен: мягкая тень объявлена раньше цветных, чтобы кнопки сохраняли своё свечение */
-.ap-shadow-soft { box-shadow: 0 6px 20px rgba(44, 42, 41, 0.10); }
-.ap-card { background-color: #FFFFFF; box-shadow: 0 10px 30px rgba(242, 106, 75, 0.08); }
-.ap-card-hover:hover { box-shadow: 0 16px 40px rgba(242, 106, 75, 0.14); }
+/* ---------- Поверхности и линии ---------- */
+.ap-surface { background-color: #FBF5E6; }     /* подложка внутри карточки */
+.ap-sand { background-color: #F8F0DE; }
+.ap-sand-deep { background-color: #F1E5CC; }
+.ap-paper { background-color: #FFFDF5; }
+.ap-modal-bg { background-color: #FFFDF5; }
+.ap-header-glass { background-color: rgba(254, 250, 224, 0.92); }
+.ap-glass { background-color: rgba(255, 253, 245, 0.94); }
+.ap-overlay { background-color: rgba(40, 54, 24, 0.45); }
+/* Деликатные полупрозрачные медовые границы */
+.ap-line { border-color: rgba(221, 161, 94, 0.35); }
+.ap-line-soft { border-color: rgba(221, 161, 94, 0.25); }
+.ap-divide > * { border-color: rgba(221, 161, 94, 0.25); }
 
-/* ---------- Главный акцент: кораллово-оранжевый #F26A4B ---------- */
-.ap-btn-accent { background-color: #F26A4B; color: #FFFFFF; box-shadow: 0 6px 18px rgba(242, 106, 75, 0.28); }
-.ap-btn-accent:hover { background-color: #E05636; }
-.ap-btn-accent-soft { background-color: #FFE5DD; color: #C9431F; border-color: #FFC2B0; }
-.ap-btn-accent-soft:hover { background-color: #FFD6C9; border-color: #FFAD96; }
-.ap-btn-outline-accent { background-color: #FFE5DD; color: #C9431F; border-color: #F26A4B; }
-.ap-accent-soft { background-color: #FFE5DD; }
-.ap-hover-accent-soft:hover { background-color: #FFE5DD; }
-.ap-heart-on { color: #F26A4B; fill: #F26A4B; }
+.ap-shadow-soft { box-shadow: 0 2px 10px rgba(40, 54, 24, 0.08); }
+.ap-card {
+  background-color: #FFFDF5;
+  border: 1px solid rgba(221, 161, 94, 0.35);
+  box-shadow: 0 4px 20px rgba(40, 54, 24, 0.05);
+}
+.ap-card-hover:hover {
+  border-color: rgba(221, 161, 94, 0.6);
+  box-shadow: 0 10px 30px rgba(40, 54, 24, 0.09);
+}
 
-/* Чипсы, вкладки, вторичные кнопки */
-.ap-chip-idle { background-color: #FAF7F2; color: #57534E; border-color: #E3D9CB; }
-.ap-chip-idle:hover { background-color: #FFE5DD; border-color: #FFC2B0; color: #2C2A29; }
-.ap-chip-active { background-color: #F26A4B; border-color: #F26A4B; color: #FFFFFF; box-shadow: 0 6px 16px rgba(242, 106, 75, 0.25); }
-.ap-tab-idle { color: #57534E; }
-.ap-tab-idle:hover { background-color: #FAF7F2; color: #2C2A29; }
+/* ---------- Главный акцент: оливково-мшистый #606C38 ---------- */
+.ap-btn-accent { background-color: #606C38; color: #FEFAE0; box-shadow: 0 4px 14px rgba(96, 108, 56, 0.2); }
+.ap-btn-accent:hover { background-color: #4F5A2D; }
+.ap-btn-outline-accent { background-color: #EEF0DC; color: #4F5A2D; border-color: #606C38; }
+.ap-chip-idle { background-color: #FFFDF5; color: #565E42; border-color: rgba(221, 161, 94, 0.4); }
+.ap-chip-idle:hover { background-color: #FBF3E1; border-color: #DDA15E; color: #283618; }
+.ap-chip-active { background-color: #606C38; border-color: #606C38; color: #FEFAE0; box-shadow: 0 4px 14px rgba(96, 108, 56, 0.2); }
+.ap-tab-idle { color: #565E42; }
+.ap-tab-idle:hover { background-color: #FFFDF5; color: #283618; }
 
-/* ---------- Второй акцент: яблочно-зелёный #4CAF7D ---------- */
-/* Текст на зелёном — графитовый: белый на #4CAF7D читается хуже */
-.ap-sage { background-color: #4CAF7D; color: #2C2A29; }
-.ap-sage-fill { background-color: #4CAF7D; }
-.ap-sage-soft { background-color: #E2F6EA; }
-.ap-sage-panel { background-color: #E2F6EA; border-color: #B3E3C7; }
-.ap-toggle-idle { background-color: #FAF7F2; color: #57534E; border-color: #E3D9CB; }
-.ap-toggle-idle:hover { background-color: #E2F6EA; border-color: #B3E3C7; }
-.ap-toggle-active { background-color: #4CAF7D; border-color: #4CAF7D; color: #2C2A29; box-shadow: 0 6px 16px rgba(76, 175, 125, 0.30); }
-.ap-track-off { background-color: #E3D9CB; }
-.ap-track-on { background-color: #2F9C64; }
-.ap-knob { background-color: #FFFDF9; box-shadow: 0 1px 3px rgba(44, 42, 41, 0.25); }
-.ap-progress-fill { background-image: linear-gradient(to right, #FFB547, #F26A4B); }
+/* ---------- Медовый песок #DDA15E и тёплая карамель #BC6C25 ---------- */
+.ap-badge-honey { background-color: #DDA15E; color: #283618; }   /* «Ищет семью», «Проверен» */
+.ap-btn-caramel { background-color: #BC6C25; color: #FEFAE0; box-shadow: 0 4px 14px rgba(188, 108, 37, 0.25); }
+.ap-btn-caramel:hover { background-color: #A45B1C; }
+.ap-btn-accent-soft { background-color: #FBF1DF; color: #9A541A; border-color: rgba(221, 161, 94, 0.5); }
+.ap-btn-accent-soft:hover { background-color: #F6E4C6; border-color: #BC6C25; }
+.ap-accent-soft { background-color: #FBEBD3; }
+.ap-hover-accent-soft:hover { background-color: #FBEBD3; }
+.ap-heart-on { color: #BC6C25; fill: #BC6C25; }
+.ap-progress-fill { background-color: #DDA15E; }
 
-/* ---------- Графит, поля ввода, внешние сервисы ---------- */
-.ap-bg-graphite { background-color: #2C2A29; color: #FAF7F2; }
-.ap-bg-graphite:hover { background-color: #403C3A; }
-.ap-input { background-color: #FAF7F2; border-color: #E3D9CB; color: #2C2A29; }
-.ap-input:focus { border-color: #F26A4B; box-shadow: 0 0 0 4px rgba(242, 106, 75, 0.15); }
-.ap-field { background-color: #FAF7F2; border-color: #E3D9CB; color: #2C2A29; }
-.ap-btn-whatsapp { background-color: #3FB871; color: #FFFFFF; box-shadow: 0 6px 16px rgba(63, 184, 113, 0.25); }
-.ap-btn-whatsapp:hover { background-color: #35A363; }
-.ap-btn-kaspi { background-color: #E5503F; color: #FFFFFF; box-shadow: 0 6px 18px rgba(229, 80, 63, 0.25); }
-.ap-btn-kaspi:hover { background-color: #CF4434; }
+/* ---------- Статусы ---------- */
+/* .ap-sage — бейджи проверки («Проверен», «Спасён в Астане») в медовом цвете */
+.ap-sage { background-color: #DDA15E; color: #283618; }
+.ap-sage-fill { background-color: #606C38; }
+.ap-sage-soft { background-color: #EEF0DC; }
+.ap-sage-panel { background-color: #F3F4E3; border-color: #CDD3AE; }
+.ap-toggle-idle { background-color: #FFFDF5; color: #565E42; border-color: rgba(221, 161, 94, 0.4); }
+.ap-toggle-idle:hover { background-color: #FBF3E1; border-color: #DDA15E; }
+.ap-toggle-active { background-color: #606C38; border-color: #606C38; color: #FEFAE0; box-shadow: 0 4px 14px rgba(96, 108, 56, 0.2); }
+.ap-track-off { background-color: #EADCBF; }
+.ap-track-on { background-color: #8A9659; }
+.ap-knob { background-color: #FFFDF5; box-shadow: 0 1px 2px rgba(40, 54, 24, 0.25); }
+
+/* ---------- Тёмные элементы, поля ввода, внешние сервисы ---------- */
+.ap-bg-graphite { background-color: #283618; color: #FEFAE0; }
+.ap-bg-graphite:hover { background-color: #344620; }
+.ap-input { background-color: #FBF6E8; border-color: rgba(221, 161, 94, 0.4); color: #283618; }
+.ap-input:focus { border-color: #606C38; background-color: #FFFDF5; box-shadow: 0 0 0 4px rgba(96, 108, 56, 0.14); }
+.ap-field { background-color: #FBF6E8; border-color: rgba(221, 161, 94, 0.4); color: #283618; }
+.ap-btn-whatsapp { background-color: #25A55F; color: #FFFDF5; }
+.ap-btn-whatsapp:hover { background-color: #1E8D50; }
+.ap-btn-kaspi { background-color: #E5402F; color: #FFFDF5; }
+.ap-btn-kaspi:hover { background-color: #C93424; }
+
+/* ---------- Хвойная секция «Помочь приютам» ---------- */
+.ap-shelter-card { background-color: #344620; border: 1px solid rgba(221, 161, 94, 0.22); }
+.ap-shelter-card:hover { border-color: rgba(221, 161, 94, 0.5); background-color: #3A4D24; }
+.ap-pill-on-dark { background-color: rgba(221, 161, 94, 0.18); color: #F0C48F; }
 
 /* ---------- Теги характера (character_tags): 2 строгие категории ---------- */
-.ap-tag-trait { background-color: #E0F0FF; color: #1E4976; }   /* Категория 1: черты характера */
-.ap-tag-skill { background-color: #FFF2CC; color: #664500; }   /* Категория 2: навыки, социализация, здоровье */
+.ap-tag-trait { background-color: #EEF0DC; color: #3F4A1F; }   /* Категория 1: черты характера — оливковый туман */
+.ap-tag-skill { background-color: #FBEBD3; color: #8A4F17; }   /* Категория 2: навыки и здоровье — мёд */
+.ap-tag-energy { background-color: #FBEBD3; color: #8A4F17; }  /* бейдж «Чипирование при передаче» */
 
-/* ---------- Прочие плашки (не теги характера) ---------- */
-.ap-tag-social { background-color: #E2F6EA; color: #2C2A29; }   /* «Ладит с детьми / с животными» в карточке */
-.ap-tag-care   { background-color: #FFE5DD; color: #2C2A29; }   /* «Лучше без маленьких детей» и т. п. */
-.ap-tag-energy { background-color: #FDF3D7; color: #2C2A29; }   /* бейдж «Чипирование при передаче» */
-
-/* ---------- Фото и свечение ---------- */
+/* ---------- Фото ---------- */
 .ap-photo { aspect-ratio: 4 / 3; }
-.ap-photo-count { background-color: rgba(44, 42, 41, 0.55); color: #FFFFFF; }
-.ap-thumb-active { box-shadow: 0 0 0 2px #FAF7F2, 0 0 0 4px #F26A4B; opacity: 1; }
 .ap-portrait { aspect-ratio: 4 / 5; }
+.ap-photo-count { background-color: rgba(40, 54, 24, 0.6); color: #FEFAE0; }
+.ap-thumb-active { box-shadow: 0 0 0 2px #FFFDF5, 0 0 0 4px #606C38; opacity: 1; }
 .ap-photo-fade {
-  background: linear-gradient(to bottom, rgba(44, 42, 41, 0.50) 0%, rgba(44, 42, 41, 0.16) 45%, rgba(44, 42, 41, 0) 75%);
+  background: linear-gradient(to bottom, rgba(30, 34, 20, 0.45) 0%, rgba(30, 34, 20, 0.14) 45%, rgba(30, 34, 20, 0) 75%);
 }
 .ap-photo-fade-bottom {
-  background: linear-gradient(to top, rgba(44, 42, 41, 0.65) 0%, rgba(44, 42, 41, 0) 100%);
-}
-.ap-hero-glow {
-  background:
-    radial-gradient(55% 60% at 80% 25%, rgba(242, 106, 75, 0.20) 0%, rgba(250, 247, 242, 0) 70%),
-    radial-gradient(45% 55% at 5% 90%, rgba(76, 175, 125, 0.20) 0%, rgba(250, 247, 242, 0) 70%);
+  background: linear-gradient(to top, rgba(30, 34, 20, 0.72) 0%, rgba(30, 34, 20, 0.3) 45%, rgba(30, 34, 20, 0) 100%);
 }
 
 .ap-no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
@@ -972,13 +1016,13 @@ function Toggle({ checked, onChange, label, icon: Icon }) {
       }`}
     >
       <span className="flex items-center gap-2.5 text-sm font-semibold">
-        <Icon className={`h-4 w-4 shrink-0 ${checked ? 'ap-text-main' : 'ap-text-sage-deep'}`} />
+        <Icon className={`h-4 w-4 shrink-0 ${checked ? 'ap-ivory-text' : 'ap-text-sage-deep'}`} />
         {label}
       </span>
       <span className="relative inline-flex shrink-0">
         <input type="checkbox" className="peer sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
         <span
-          className={`h-6 w-11 rounded-full transition-colors duration-300 peer-focus-visible:ring-2 peer-focus-visible:ring-stone-300 ${
+          className={`h-6 w-11 rounded-full transition-colors duration-300 peer-focus-visible:ring-2 peer-focus-visible:ring-stone-400 ${
             checked ? 'ap-track-on' : 'ap-track-off'
           }`}
         />
@@ -995,9 +1039,9 @@ function ProgressBar({ collected, goal, purpose, compact = false }) {
   const pct = Math.min(100, Math.round((collected / goal) * 100));
   const done = collected >= goal;
   return (
-    <div className={`rounded-2xl border border-stone-200/70 ${compact ? 'ap-surface p-3' : 'ap-sand p-4'}`}>
+    <div className={`rounded-2xl border ap-line ${compact ? 'ap-surface p-3' : 'ap-sand p-4'}`}>
       <div className="mb-2 flex items-center justify-between text-xs font-bold">
-        <span className="text-stone-500">{done ? 'Сбор закрыт 🎉' : 'Прозрачный сбор'}</span>
+        <span className="ap-text-soft">{done ? 'Сбор закрыт 🎉' : 'Прозрачный сбор'}</span>
         <span className={done ? 'ap-text-sage-deep' : 'ap-text-accent'}>{pct}%</span>
       </div>
       <div className="h-2.5 w-full overflow-hidden rounded-full ap-track-off">
@@ -1006,8 +1050,8 @@ function ProgressBar({ collected, goal, purpose, compact = false }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <p className="mt-2 text-xs leading-relaxed text-stone-600">
-        Собрано <b className="font-extrabold ap-text-main">{formatKZT(collected)}</b> из {formatKZT(goal)}
+      <p className="mt-2 text-xs leading-relaxed ap-text-muted">
+        Собрано <b className="font-bold ap-text-main">{formatKZT(collected)}</b> из {formatKZT(goal)}
         {purpose ? <> на {purpose}</> : null}
       </p>
     </div>
@@ -1028,7 +1072,7 @@ function FavoriteButton({ active, onToggle, className = '' }) {
     >
       <Heart
         key={active ? 'on' : 'off'}
-        className={`h-5 w-5 transition-colors duration-300 ${active ? 'ap-pop ap-heart-on' : 'text-stone-600'}`}
+        className={`h-5 w-5 transition-colors duration-300 ${active ? 'ap-pop ap-heart-on' : 'ap-text-muted'}`}
       />
     </button>
   );
@@ -1058,7 +1102,7 @@ function Modal({ open, onClose, children, labelledBy }) {
           type="button"
           onClick={onClose}
           aria-label="Закрыть"
-          className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full ap-glass text-stone-700 ap-shadow-soft backdrop-blur-sm transition-all duration-300 hover:scale-105"
+          className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full ap-glass ap-text-strong ap-shadow-soft backdrop-blur-sm transition-all duration-300 hover:scale-105"
         >
           <X className="h-5 w-5" />
         </button>
@@ -1080,15 +1124,26 @@ function Toast({ message }) {
   );
 }
 
-function PhotoImg({ src, alt, className = '', eager = false }) {
+// Фото с запасными вариантами: если ссылка не открылась, пробуем следующее фото питомца,
+// и только потом показываем заглушку с лапкой. no-referrer нужен для картинок Google.
+function PhotoImg({ src, fallbacks = [], alt, className = '', eager = false }) {
+  const candidates = useMemo(
+    () => [src, ...fallbacks].filter((url, i, arr) => url && arr.indexOf(url) === i),
+    [src, fallbacks]
+  );
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => setAttempt(0), [src]);
+
+  const current = candidates[attempt] || FALLBACK_PHOTO;
   return (
     <img
-      src={src}
+      src={current}
       alt={alt}
       loading={eager ? 'eager' : 'lazy'}
-      onError={(e) => {
-        e.currentTarget.src = FALLBACK_PHOTO;
-      }}
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={() => setAttempt((n) => (n < candidates.length ? n + 1 : n))}
       className={className}
     />
   );
@@ -1100,15 +1155,15 @@ function PhotoImg({ src, alt, className = '', eager = false }) {
 
 function Header({ favoritesCount, favoritesOnly, onToggleFavorites }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-stone-200/70 ap-header-glass backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b ap-line-soft ap-header-glass backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
         <a href="#top" className="flex items-center gap-2.5">
           <span className="flex h-10 w-10 items-center justify-center rounded-2xl ap-btn-accent">
             <PawPrint className="h-5 w-5" />
           </span>
           <span className="leading-tight">
-            <span className="block text-lg font-extrabold ap-text-main">Лапки Астаны</span>
-            <span className="block text-xs font-semibold text-stone-500">AstanaPets</span>
+            <span className="block text-lg font-bold ap-text-main">Лапки Астаны</span>
+            <span className="block text-xs font-semibold ap-text-soft">AstanaPets</span>
           </span>
         </a>
         <div className="flex items-center gap-2">
@@ -1127,7 +1182,7 @@ function Header({ favoritesCount, favoritesOnly, onToggleFavorites }) {
                 : 'ap-chip-idle'
             }`}
           >
-            <Heart className={`h-4 w-4 ${favoritesOnly ? 'fill-white' : favoritesCount ? 'ap-heart-on' : ''}`} />
+            <Heart className={`h-4 w-4 ${favoritesOnly ? 'ap-fill-ivory' : favoritesCount ? 'ap-heart-on' : ''}`} />
             <span>{favoritesCount}</span>
           </button>
         </div>
@@ -1178,6 +1233,7 @@ function HeroCollage({ pets, onOpenPet }) {
           <div className="ap-portrait relative overflow-hidden rounded-2xl ap-sand-deep">
             <PhotoImg
               src={pet.photo_url}
+              fallbacks={pet.photos}
               alt={isFiller ? 'Питомец из приюта' : pet.name}
               eager={priority}
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
@@ -1185,8 +1241,8 @@ function HeroCollage({ pets, onOpenPet }) {
             <div className="ap-photo-fade-bottom absolute inset-x-0 bottom-0 h-1/3" />
             {badge}
             {!isFiller && (
-              <div className="absolute inset-x-3 bottom-3 text-left text-white">
-                <p className="text-lg font-extrabold leading-tight">{pet.name}</p>
+              <div className="absolute inset-x-3 bottom-3 text-left ap-ivory-text">
+                <p className="text-lg font-bold leading-tight">{pet.name}</p>
                 <p className="text-xs font-semibold opacity-90">{formatAge(pet.age_months)}</p>
               </div>
             )}
@@ -1220,8 +1276,8 @@ function HeroCollage({ pets, onOpenPet }) {
           tilt="rotate-3"
           floatClass="ap-float-slow"
           badge={
-            <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full ap-btn-accent px-3 py-1 text-xs font-bold">
-              <Heart className="h-3.5 w-3.5 fill-white" />
+            <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full ap-badge-honey px-3 py-1 text-xs font-bold">
+              <Heart className="h-3.5 w-3.5 ap-heart-on" />
               Ищет семью
             </span>
           }
@@ -1230,12 +1286,12 @@ function HeroCollage({ pets, onOpenPet }) {
       <div className="absolute bottom-0 right-20 z-20">
         <PolaroidPhoto slot={c} widthClass="w-52" tilt="-rotate-2" floatClass="ap-float-late" badge={null} />
       </div>
-      <figure className="ap-card absolute bottom-2 left-4 z-30 w-60 rounded-2xl border border-stone-200/70 p-4">
+      <figure className="ap-card absolute bottom-2 left-4 z-30 w-60 rounded-2xl border ap-line p-4">
         <Quote className="h-5 w-5 ap-text-accent" />
-        <blockquote className="mt-1 text-sm font-semibold leading-snug text-stone-700">
+        <blockquote className="mt-1 text-sm font-semibold leading-snug ap-text-strong">
           Каждого питомца проверил куратор приюта. Вы знакомитесь вживую, без посредников.
         </blockquote>
-        <figcaption className="mt-2 text-xs font-bold text-stone-400">— команда AstanaPets</figcaption>
+        <figcaption className="mt-2 text-xs font-bold ap-text-faint">— команда AstanaPets</figcaption>
       </figure>
     </div>
   );
@@ -1246,8 +1302,8 @@ function MobilePreviewSlider({ pets, onOpenPet }) {
   return (
     <div className="w-full min-w-0 max-w-full lg:hidden">
       <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm font-extrabold ap-text-main">Ждут знакомства</p>
-        <p className="flex items-center gap-1 text-xs font-semibold text-stone-500">
+        <p className="text-sm font-bold ap-text-main">Ждут знакомства</p>
+        <p className="flex items-center gap-1 text-xs font-semibold ap-text-soft">
           листайте <ChevronRight className="h-3.5 w-3.5" />
         </p>
       </div>
@@ -1261,14 +1317,20 @@ function MobilePreviewSlider({ pets, onOpenPet }) {
               className="ap-card group w-36 shrink-0 snap-start rounded-3xl p-1.5 text-left transition-all duration-300 active:scale-95"
             >
               <div className="ap-portrait relative overflow-hidden rounded-2xl ap-sand-deep">
-                <PhotoImg src={pet.photo_url} alt={pet.name} eager={i < 2} className="h-full w-full object-cover" />
+                <PhotoImg
+                  src={pet.photos?.[0] || pet.photo_url}
+                  fallbacks={pet.photos}
+                  alt={pet.name}
+                  eager={i < 3}
+                  className="h-full w-full object-cover"
+                />
                 <div className="ap-photo-fade-bottom absolute inset-x-0 bottom-0 h-1/2" />
                 {i === 0 && (
                   <span className="absolute left-2 top-2 rounded-full ap-sage px-2 py-0.5 text-xs font-bold ap-shadow-soft">Спасён в Астане</span>
                 )}
-                {i === 1 && <span className="absolute left-2 top-2 rounded-full ap-btn-accent px-2 py-0.5 text-xs font-bold">Ищет семью</span>}
-                <div className="absolute inset-x-2 bottom-2 text-white">
-                  <p className="text-base font-extrabold leading-tight">{pet.name}</p>
+                {i === 1 && <span className="absolute left-2 top-2 rounded-full ap-badge-honey px-2 py-0.5 text-xs font-bold">Ищет семью</span>}
+                <div className="absolute inset-x-2 bottom-2 ap-ivory-text">
+                  <p className="text-base font-bold leading-tight">{pet.name}</p>
                   <p className="text-xs font-semibold opacity-90">{formatAge(pet.age_months)}</p>
                 </div>
               </div>
@@ -1287,26 +1349,25 @@ function Hero({ petsCount, sheltersCount, previewPets, onOpenPet }) {
   };
 
   return (
-    <section id="top" className="relative w-full overflow-hidden">
-      <div className="ap-hero-glow pointer-events-none absolute inset-0" />
+    <section id="top" className="ap-cream-block relative w-full overflow-hidden border-b ap-line-soft">
       <div className="relative mx-auto grid w-full min-w-0 max-w-6xl grid-cols-1 items-center gap-8 px-4 pb-6 pt-8 sm:pt-12 lg:grid-cols-2 lg:gap-12 lg:pb-16 lg:pt-16">
         <div className="min-w-0">
           <span className="mb-4 inline-flex items-center gap-1.5 rounded-full ap-accent-soft px-3 py-1.5 text-xs font-bold ap-text-accent">
             <Sparkles className="h-3.5 w-3.5" />
             Приюты Астаны — в одном месте
           </span>
-          <h1 className="break-words text-2xl font-extrabold leading-tight tracking-normal ap-text-main sm:text-4xl lg:text-5xl">
+          <h1 className="break-words text-2xl font-bold leading-tight tracking-tight ap-text-main sm:text-4xl lg:text-5xl">
             Найди друга из приюта в Астане и <span className="ap-text-accent">помоги тем, кто ещё ждёт дом</span>
           </h1>
 
-          <div className="ap-card mt-6 flex w-full max-w-full items-start gap-3 rounded-2xl border border-stone-200/70 px-4 py-3 text-sm text-stone-600 sm:inline-flex sm:w-auto sm:items-center">
+          <div className="ap-card mt-6 flex w-full max-w-full items-start gap-3 rounded-2xl border ap-line px-4 py-3 text-sm ap-text-muted sm:inline-flex sm:w-auto sm:items-center">
             <span className="relative mt-1 flex h-3 w-3 shrink-0 sm:mt-0">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full ap-sage-fill opacity-75" />
               <span className="relative inline-flex h-3 w-3 rounded-full ap-sage-fill" />
             </span>
             <span className="min-w-0 break-words font-semibold leading-snug">
-              Сейчас ищут дом: <b className="font-extrabold ap-text-main">{petsCount}</b> {pluralRu(petsCount, ['питомец', 'питомца', 'питомцев'])} из{' '}
-              <b className="font-extrabold ap-text-main">{sheltersCount}</b>{' '}
+              Сейчас ищут дом: <b className="font-bold ap-text-main">{petsCount}</b> {pluralRu(petsCount, ['питомец', 'питомца', 'питомцев'])} из{' '}
+              <b className="font-bold ap-text-main">{sheltersCount}</b>{' '}
               {pluralRu(sheltersCount, ['проверенного приюта', 'проверенных приютов', 'проверенных приютов'])}
             </span>
           </div>
@@ -1330,7 +1391,7 @@ function Hero({ petsCount, sheltersCount, previewPets, onOpenPet }) {
             </button>
           </div>
 
-          <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-stone-600">
+          <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold ap-text-muted">
             <li className="flex items-center gap-1.5">
               <ShieldCheck className="h-4 w-4 ap-text-sage-deep" />
               Проверенные приюты
@@ -1384,12 +1445,12 @@ function Filters({ filters, setFilter, reset, resultsCount }) {
   };
 
   return (
-    <div className="ap-card space-y-4 rounded-3xl border border-stone-200/70 p-4 sm:p-5">
+    <div className="ap-card space-y-4 rounded-3xl border ap-line p-4 sm:p-5">
       <SpeciesTabs value={filters.species} onChange={(v) => setFilter('species', v)} />
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-stone-400" />
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 ap-text-faint" />
           <input
             type="search"
             value={filters.query}
@@ -1410,7 +1471,7 @@ function Filters({ filters, setFilter, reset, resultsCount }) {
           <SlidersHorizontal className="h-4 w-4" />
           Расширенный поиск
           {advancedCount > 0 && (
-            <span className="inline-flex h-6 items-center justify-center rounded-full ap-btn-accent px-2 text-xs font-extrabold">
+            <span className="inline-flex h-6 items-center justify-center rounded-full ap-btn-caramel px-2 text-xs font-bold">
               {advancedCount}
             </span>
           )}
@@ -1420,10 +1481,10 @@ function Filters({ filters, setFilter, reset, resultsCount }) {
 
       <div id="advanced-filters" className={`ap-collapse ${open ? 'is-open' : ''}`} aria-hidden={!open}>
         <div>
-          <div className="space-y-4 border-t border-stone-200/70 pt-4">
+          <div className="space-y-4 border-t ap-line pt-4">
             {advancedGroups.map((group) => (
               <div key={group.key}>
-                <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-stone-500">{group.label}</p>
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide ap-text-soft">{group.label}</p>
                 <div className="ap-no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
                   {group.options.map((opt) => (
                     <Chip key={opt.value} icon={opt.icon} active={filters[group.key] === opt.value} onClick={() => setFilter(group.key, opt.value)}>
@@ -1435,7 +1496,7 @@ function Filters({ filters, setFilter, reset, resultsCount }) {
             ))}
 
             <div>
-              <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-stone-500">Здоровье и характер</p>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide ap-text-soft">Здоровье и характер</p>
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                 {TOGGLES.map((t) => (
                   <Toggle key={t.key} icon={t.icon} label={t.label} checked={filters[t.key]} onChange={(v) => setFilter(t.key, v)} />
@@ -1447,8 +1508,8 @@ function Filters({ filters, setFilter, reset, resultsCount }) {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-stone-600">
-          Найдено: <b className="font-extrabold ap-text-main">{resultsCount}</b>
+        <p className="text-sm font-semibold ap-text-muted">
+          Найдено: <b className="font-bold ap-text-main">{resultsCount}</b>
         </p>
         {dirty && (
           <button
@@ -1469,11 +1530,12 @@ function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
   const tags = sortTagsByCategory(splitTags(pet.character_tags)).slice(0, 4);
 
   return (
-    <article className="ap-card ap-card-hover group flex flex-col overflow-hidden rounded-3xl border border-stone-200/70 transition-all duration-300 hover:-translate-y-1">
+    <article className="ap-card ap-card-hover group flex flex-col overflow-hidden rounded-3xl border ap-line transition-all duration-300 hover:-translate-y-1">
       <div className="ap-photo relative w-full overflow-hidden ap-sand-deep">
         <button type="button" onClick={() => onOpen(pet)} aria-label={`Открыть карточку: ${pet.name}`} className="absolute inset-0 block h-full w-full">
           <PhotoImg
             src={pet.photo_url}
+            fallbacks={pet.photos}
             alt={`${pet.name} — ${pet.species === 'dog' ? 'собака' : 'кошка'} из приюта`}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
@@ -1506,8 +1568,8 @@ function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
 
       <div className="flex flex-1 flex-col gap-3 p-5">
         <div>
-          <h3 className="text-2xl font-extrabold tracking-normal ap-text-main">{pet.name}</h3>
-          <p className="mt-0.5 text-sm font-semibold text-stone-500">
+          <h3 className="text-2xl font-bold tracking-tight ap-text-main">{pet.name}</h3>
+          <p className="mt-0.5 text-sm font-semibold ap-text-soft">
             {SEX_LABEL[pet.sex]} · {formatAge(pet.age_months)} · {SIZE_LABEL[pet.size]}
           </p>
         </div>
@@ -1550,17 +1612,17 @@ function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
 
 function DetailSection({ title, children }) {
   return (
-    <section className="border-t border-stone-200/80 pt-5">
-      <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-stone-400">{title}</h3>
-      <div className="divide-y divide-stone-200/80">{children}</div>
+    <section className="border-t ap-line pt-5">
+      <h3 className="mb-1 text-xs font-bold uppercase tracking-wider ap-text-faint">{title}</h3>
+      <div className="divide-y ap-divide">{children}</div>
     </section>
   );
 }
 
 const STATUS_ICON = {
-  yes: { Icon: Check, cls: 'text-emerald-600' },
-  no: { Icon: X, cls: 'text-rose-500' },
-  neutral: { Icon: Minus, cls: 'text-stone-400' },
+  yes: { Icon: Check, cls: 'ap-ok' },
+  no: { Icon: X, cls: 'ap-no' },
+  neutral: { Icon: Minus, cls: 'ap-text-faint' },
 };
 
 // Строка характеристики: иконка + подпись слева, значение (и при необходимости статус) справа
@@ -1568,15 +1630,15 @@ function DetailRow({ icon: Icon, glyph, label, value, status }) {
   const st = status ? STATUS_ICON[status] : null;
   return (
     <div className="flex items-center justify-between gap-3 py-3">
-      <span className="flex min-w-0 items-center gap-3 text-sm font-semibold text-stone-600">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ap-sand text-stone-500">
-          {Icon ? <Icon className="h-4 w-4" /> : <span className="text-base font-extrabold leading-none">{glyph}</span>}
+      <span className="flex min-w-0 items-center gap-3 text-sm font-semibold ap-text-muted">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ap-sand ap-text-soft">
+          {Icon ? <Icon className="h-4 w-4" /> : <span className="text-base font-bold leading-none">{glyph}</span>}
         </span>
         <span className="min-w-0">{label}</span>
       </span>
       <span
         className={`flex shrink-0 items-center gap-1.5 text-right text-sm font-bold ${
-          status === 'neutral' ? 'text-stone-500' : 'ap-text-main'
+          status === 'neutral' ? 'ap-text-soft' : 'ap-text-main'
         }`}
       >
         {st && <st.Icon className={`h-4 w-4 ${st.cls}`} />}
@@ -1587,17 +1649,17 @@ function DetailRow({ icon: Icon, glyph, label, value, status }) {
 }
 
 const COMPAT_STATUS = {
-  yes: { Icon: Check, cls: 'text-emerald-600', text: 'Да' },
-  no: { Icon: X, cls: 'text-rose-500', text: 'Нет' },
-  unknown: { Icon: HelpCircle, cls: 'text-stone-400', text: 'Неизвестно' },
+  yes: { Icon: Check, cls: 'ap-ok', text: 'Да' },
+  no: { Icon: X, cls: 'ap-no', text: 'Нет' },
+  unknown: { Icon: HelpCircle, cls: 'ap-text-faint', text: 'Неизвестно' },
 };
 
 function CompatTile({ icon: Icon, label, value }) {
   const st = COMPAT_STATUS[value] || COMPAT_STATUS.unknown;
   return (
-    <div className="relative rounded-2xl border border-stone-200 bg-white p-3.5 text-center">
+    <div className="relative rounded-2xl border ap-line ap-paper p-3.5 text-center">
       <st.Icon className={`absolute right-2.5 top-2.5 h-4 w-4 ${st.cls}`} aria-hidden="true" />
-      <Icon className="mx-auto mt-1 h-7 w-7 text-stone-600" aria-hidden="true" />
+      <Icon className="mx-auto mt-1 h-7 w-7 ap-text-muted" aria-hidden="true" />
       <p className="mt-2 text-sm font-bold ap-text-main">{label}</p>
       <p className={`mt-0.5 text-xs font-bold ${st.cls}`}>{st.text}</p>
     </div>
@@ -1673,7 +1735,7 @@ function PetGallery({ pet }) {
               type="button"
               onClick={() => goTo(index - 1, 'arrow')}
               aria-label="Предыдущее фото"
-              className="absolute left-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full ap-glass text-stone-700 ap-shadow-soft transition-all duration-300 hover:scale-105 active:scale-95"
+              className="absolute left-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full ap-glass ap-text-strong ap-shadow-soft transition-all duration-300 hover:scale-105 active:scale-95"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
@@ -1681,7 +1743,7 @@ function PetGallery({ pet }) {
               type="button"
               onClick={() => goTo(index + 1, 'arrow')}
               aria-label="Следующее фото"
-              className="absolute right-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full ap-glass text-stone-700 ap-shadow-soft transition-all duration-300 hover:scale-105 active:scale-95"
+              className="absolute right-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full ap-glass ap-text-strong ap-shadow-soft transition-all duration-300 hover:scale-105 active:scale-95"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -1759,10 +1821,10 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
 
       <div className="space-y-6 p-5 pb-8 sm:p-6">
         <div>
-          <h2 id="pet-modal-title" className="text-3xl font-extrabold tracking-normal ap-text-main">
+          <h2 id="pet-modal-title" className="text-3xl font-bold tracking-tight ap-text-main">
             {pet.name}
           </h2>
-          <p className="mt-1 text-sm font-semibold text-stone-500">
+          <p className="mt-1 text-sm font-semibold ap-text-soft">
             {pet.species === 'dog' ? 'Собака' : 'Кошка'} · {SEX_LABEL[pet.sex]} · {formatAge(pet.age_months)} · {SIZE_LABEL[pet.size]}
           </p>
           {tags.length > 0 && (
@@ -1777,8 +1839,8 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
         </div>
 
         <section>
-          <h3 className="mb-2 text-lg font-extrabold ap-text-main">История и характер</h3>
-          <p className="ap-prose text-base text-stone-600">{pet.description}</p>
+          <h3 className="mb-2 text-lg font-bold ap-text-main tracking-tight">История и характер</h3>
+          <p className="ap-prose text-base ap-text-muted">{pet.description}</p>
         </section>
 
         <DetailSection title="Порода и внешность">
@@ -1840,14 +1902,14 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
             status={pet.is_registered ? 'yes' : 'neutral'}
             value={pet.is_registered ? 'Да' : 'При передаче'}
           />
-          <p className="flex items-start gap-1.5 pt-3 text-xs font-medium text-stone-500">
+          <p className="flex items-start gap-1.5 pt-3 text-xs font-medium ap-text-soft">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             По правилам ответственного обращения с животными в РК питомец должен быть идентифицирован (чип) и зарегистрирован на нового владельца.
           </p>
         </DetailSection>
 
-        <section className="border-t border-stone-200/80 pt-5">
-          <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-stone-400">Совместимость: {pet.name}</h3>
+        <section className="border-t ap-line pt-5">
+          <h3 className="mb-3 text-xs font-bold uppercase tracking-wider ap-text-faint">Совместимость: {pet.name}</h3>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <CompatTile icon={Baby} label="Дети" value={pet.compat_kids} />
             <CompatTile icon={Dog} label="Собаки" value={pet.compat_dogs} />
@@ -1859,11 +1921,11 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
         <ProgressBar collected={pet.fundraising_collected_kzt} goal={pet.fundraising_goal_kzt} purpose={pet.fundraising_purpose} />
 
         <section>
-          <h3 className="mb-3 text-lg font-extrabold ap-text-main">Как забрать питомца</h3>
+          <h3 className="mb-3 text-lg font-bold ap-text-main tracking-tight">Как забрать питомца</h3>
           <ol className="space-y-2">
             {['Связаться с куратором', 'Познакомиться в приюте', 'Оформить передачу и регистрацию чипа'].map((step, i) => (
-              <li key={step} className="flex items-center gap-3 rounded-2xl border border-stone-200/70 ap-sand px-4 py-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full ap-btn-accent text-sm font-extrabold">
+              <li key={step} className="flex items-center gap-3 rounded-2xl border ap-line ap-sand px-4 py-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full ap-btn-accent text-sm font-bold">
                   {i + 1}
                 </span>
                 <span className="text-sm font-bold ap-text-main">{step}</span>
@@ -1884,8 +1946,8 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
             </button>
           ) : (
             <div className="ap-toast space-y-3 rounded-2xl border-2 ap-sage-panel p-4">
-              <p className="text-sm font-semibold text-stone-600">
-                Куратор: <b className="font-extrabold ap-text-main">{pet.curator_name}</b> · {pet.shelter_name}
+              <p className="text-sm font-semibold ap-text-muted">
+                Куратор: <b className="font-bold ap-text-main">{pet.curator_name}</b> · {pet.shelter_name}
               </p>
               <a
                 href={waLink}
@@ -1901,9 +1963,9 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
                 <a
                   href={`tel:${pet.curator_phone.replace(/\s/g, '')}`}
                   onClick={() => trackEvent('curator_phone_called', base)}
-                  className="flex h-12 flex-1 items-center gap-2 rounded-2xl border-2 ap-field px-4 text-base font-extrabold"
+                  className="flex h-12 flex-1 items-center gap-2 rounded-2xl border-2 ap-field px-4 text-base font-bold"
                 >
-                  <Phone className="h-4 w-4 text-stone-500" />
+                  <Phone className="h-4 w-4 ap-text-soft" />
                   {pet.curator_phone}
                 </a>
                 <button
@@ -1921,7 +1983,7 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => trackEvent('instagram_clicked', base)}
-                  className="inline-flex items-center gap-1.5 text-sm font-bold text-stone-700 ap-link"
+                  className="inline-flex items-center gap-1.5 text-sm font-bold ap-text-strong ap-link"
                 >
                   <Instagram className="h-4 w-4" />
                   Instagram приюта
@@ -1960,26 +2022,26 @@ function DonateModal({ target, onClose, notify }) {
     <Modal open={!!target} onClose={onClose} labelledBy="donate-modal-title">
       <div className="space-y-5 p-5 pb-8 pt-8 sm:p-6 sm:pt-8">
         <div className="pr-12">
-          <span className="mb-3 inline-flex h-14 w-14 items-center justify-center rounded-2xl ap-btn-accent">
-            <Heart className="h-7 w-7 fill-white" />
+          <span className="mb-3 inline-flex h-14 w-14 items-center justify-center rounded-2xl ap-btn-caramel">
+            <Heart className="h-7 w-7 ap-fill-ivory" />
           </span>
-          <h2 id="donate-modal-title" className="text-2xl font-extrabold tracking-normal ap-text-main">
+          <h2 id="donate-modal-title" className="text-2xl font-bold tracking-tight ap-text-main">
             Помочь приюту «{shelter.shelter_name}»
           </h2>
-          {pet && <p className="mt-1 text-sm font-semibold text-stone-500">Сбор в карточке: {pet.name}</p>}
+          {pet && <p className="mt-1 text-sm font-semibold ap-text-soft">Сбор в карточке: {pet.name}</p>}
         </div>
 
         <div className="flex items-start gap-3 rounded-2xl ap-sage p-4">
           <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
           <p className="text-sm font-semibold leading-relaxed">
-            <b className="font-extrabold">0% комиссии.</b> Перевод уходит напрямую на официальные реквизиты приюта «{shelter.shelter_name}».
+            <b className="font-bold">0% комиссии.</b> Перевод уходит напрямую на официальные реквизиты приюта «{shelter.shelter_name}».
           </p>
         </div>
 
         {pet && <ProgressBar collected={pet.fundraising_collected_kzt} goal={pet.fundraising_goal_kzt} purpose={pet.fundraising_purpose} />}
 
-        <div className="rounded-2xl border border-stone-200/70 ap-sand p-4">
-          <p className="text-xs font-extrabold uppercase tracking-wide text-stone-500">На что идут средства</p>
+        <div className="rounded-2xl border ap-line ap-sand p-4">
+          <p className="text-xs font-bold uppercase tracking-wide ap-text-soft">На что идут средства</p>
           <p className="mt-1 text-base font-semibold ap-text-main">{shelter.donation_usage}</p>
           {shelter.reports_url && (
             <a
@@ -1987,7 +2049,7 @@ function DonateModal({ target, onClose, notify }) {
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => trackEvent('reports_link_clicked', base)}
-              className="mt-3 inline-flex items-center gap-1.5 text-sm font-bold text-stone-700 underline decoration-stone-300 underline-offset-4 ap-link"
+              className="mt-3 inline-flex items-center gap-1.5 text-sm font-bold ap-text-strong underline decoration-stone-300 underline-offset-4 ap-link"
             >
               <Instagram className="h-4 w-4" />
               Отчёты приюта в Instagram
@@ -2008,9 +2070,9 @@ function DonateModal({ target, onClose, notify }) {
         </a>
 
         <div>
-          <p className="mb-2 text-sm font-semibold text-stone-600">Или по номеру Kaspi Gold куратора ({shelter.curator_name}):</p>
+          <p className="mb-2 text-sm font-semibold ap-text-muted">Или по номеру Kaspi Gold куратора ({shelter.curator_name}):</p>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="flex h-12 flex-1 items-center rounded-2xl border-2 ap-field px-4 text-base font-extrabold">
+            <div className="flex h-12 flex-1 items-center rounded-2xl border-2 ap-field px-4 text-base font-bold">
               {shelter.kaspi_phone}
             </div>
             <button
@@ -2024,7 +2086,7 @@ function DonateModal({ target, onClose, notify }) {
           </div>
         </div>
 
-        <p className="text-xs font-medium leading-relaxed text-stone-500">
+        <p className="text-xs font-medium leading-relaxed ap-text-soft">
           AstanaPets не принимает деньги и не видит ваши платежи. Пожалуйста, проверяйте имя получателя в Kaspi перед переводом.
         </p>
       </div>
@@ -2034,39 +2096,39 @@ function DonateModal({ target, onClose, notify }) {
 
 function SheltersSection({ shelters, onDonate }) {
   return (
-    <section id="help" className="scroll-mt-20 border-y border-stone-200/70">
+    <section id="help" className="ap-forest-block scroll-mt-20">
       <div className="mx-auto max-w-6xl px-4 py-14">
-        <span className="inline-flex items-center gap-1.5 rounded-full ap-accent-soft px-3 py-1 text-xs font-bold ap-text-accent">
+        <span className="inline-flex items-center gap-1.5 rounded-full ap-pill-on-dark px-3 py-1 text-xs font-bold">
           <Heart className="h-3.5 w-3.5 ap-heart-on" />
           Прозрачные пожертвования
         </span>
-        <h2 className="mt-3 text-3xl font-extrabold tracking-normal ap-text-main sm:text-4xl">Помочь приютам</h2>
-        <p className="mt-2 max-w-2xl text-base text-stone-600">
+        <h2 className="mt-3 text-3xl font-bold tracking-tight ap-on-dark sm:text-4xl">Помочь приютам</h2>
+        <p className="mt-2 max-w-2xl text-base ap-on-dark-muted">
           Даже 1 000 ₸ — это корм на день для нескольких животных. Переводы идут напрямую приютам, без посредников и комиссий.
         </p>
         <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {shelters.map((s) => (
             <div
               key={s.shelter_name}
-              className="ap-card ap-card-hover flex flex-col gap-3 rounded-3xl border border-stone-200/70 p-6 transition-all duration-300 hover:-translate-y-1"
+              className="ap-shelter-card flex flex-col gap-3 rounded-3xl p-6 transition-all duration-300 hover:-translate-y-1"
             >
               <div className="flex items-start justify-between gap-2">
-                <h3 className="text-xl font-extrabold ap-text-main">{s.shelter_name}</h3>
+                <h3 className="text-xl font-bold ap-on-dark tracking-tight">{s.shelter_name}</h3>
                 {s.shelter_verified && (
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full ap-sage px-2.5 py-1 text-xs font-bold">
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full ap-badge-honey px-2.5 py-1 text-xs font-bold">
                     <ShieldCheck className="h-3.5 w-3.5" />
                     Проверен
                   </span>
                 )}
               </div>
-              <p className="text-sm font-medium text-stone-600">{s.donation_usage}</p>
-              <p className="text-sm font-semibold text-stone-500">
-                Ищут дом: <b className="font-extrabold ap-text-main">{s.petsCount}</b> {pluralRu(s.petsCount, ['питомец', 'питомца', 'питомцев'])}
+              <p className="text-sm font-medium ap-on-dark-muted">{s.donation_usage}</p>
+              <p className="text-sm font-semibold ap-on-dark-soft">
+                Ищут дом: <b className="font-bold ap-on-dark">{s.petsCount}</b> {pluralRu(s.petsCount, ['питомец', 'питомца', 'питомцев'])}
               </p>
               <button
                 type="button"
                 onClick={() => onDonate(null, s)}
-                className="mt-auto inline-flex items-center justify-center gap-2 rounded-2xl ap-btn-accent px-4 py-3.5 text-sm font-bold transition-all duration-300 active:scale-95"
+                className="mt-auto inline-flex items-center justify-center gap-2 rounded-2xl ap-btn-caramel px-4 py-3.5 text-sm font-bold transition-all duration-300 active:scale-95"
               >
                 <Heart className="h-4 w-4" />
                 Помочь приюту
@@ -2082,19 +2144,19 @@ function SheltersSection({ shelters, onDonate }) {
 
 function Footer() {
   return (
-    <footer className="ap-sand">
+    <footer className="ap-footer">
       <div className="mx-auto max-w-6xl space-y-4 px-4 py-10">
         <div className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl ap-btn-accent">
             <PawPrint className="h-4 w-4" />
           </span>
-          <span className="text-lg font-extrabold ap-text-main">Лапки Астаны · AstanaPets</span>
+          <span className="text-lg font-bold ap-text-main">Лапки Астаны · AstanaPets</span>
         </div>
-        <p className="max-w-3xl text-sm font-medium leading-relaxed text-stone-600">
+        <p className="max-w-3xl text-sm font-medium leading-relaxed ap-text-muted">
           Сервис носит информационный характер и помогает приютам Астаны находить дом для животных. Площадка не принимает денежные средства и не
           является стороной передачи животного — все переводы и договорённости происходят напрямую с проверенными приютами и кураторами.
         </p>
-        <p className="text-xs font-semibold text-stone-400">© {new Date().getFullYear()} AstanaPets · Пилотный проект · Астана, Казахстан</p>
+        <p className="text-xs font-semibold ap-text-faint">© {new Date().getFullYear()} AstanaPets · Пилотный проект · Астана, Казахстан</p>
       </div>
     </footer>
   );
@@ -2237,17 +2299,17 @@ export default function App() {
       <main>
         <Hero petsCount={availablePets.length} sheltersCount={activeSheltersCount} previewPets={availablePets} onOpenPet={openPet} />
 
-        <section id="catalog" className="scroll-mt-20">
+        <section id="catalog" className="ap-catalog-block scroll-mt-20 border-b ap-line">
           <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
             <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-              <h2 className="text-3xl font-extrabold tracking-normal ap-text-main sm:text-4xl">Каталог питомцев</h2>
+              <h2 className="text-3xl font-bold tracking-tight ap-text-main sm:text-4xl">Каталог питомцев</h2>
               {favoritesOnly && (
                 <button
                   type="button"
                   onClick={toggleFavoritesView}
                   className="inline-flex items-center gap-1.5 rounded-full border-2 ap-chip-active px-4 py-2 text-sm font-bold transition-all duration-300"
                 >
-                  <Heart className="h-4 w-4 fill-white" />
+                  <Heart className="h-4 w-4 ap-fill-ivory" />
                   Только избранное
                   <X className="h-4 w-4" />
                 </button>
@@ -2264,14 +2326,14 @@ export default function App() {
                   ))}
                 </div>
               ) : shown.length === 0 ? (
-                <div className="ap-card rounded-3xl border-2 border-dashed border-stone-200 p-10 text-center">
+                <div className="ap-card rounded-3xl border-2 border-dashed ap-line p-10 text-center">
                   <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full ap-accent-soft">
                     {favoritesOnly ? <Heart className="h-8 w-8 ap-text-accent" /> : <PawPrint className="h-8 w-8 ap-text-accent" />}
                   </span>
-                  <p className="mt-4 text-lg font-extrabold ap-text-main">
+                  <p className="mt-4 text-lg font-bold ap-text-main">
                     {favoritesOnly ? 'В избранном пока пусто' : 'Никого не нашли по этим фильтрам'}
                   </p>
-                  <p className="mt-1 text-sm font-medium text-stone-500">
+                  <p className="mt-1 text-sm font-medium ap-text-soft">
                     {favoritesOnly
                       ? 'Нажмите на сердечко на фото питомца, чтобы сохранить его здесь.'
                       : 'Попробуйте смягчить условия — возможно, ваш друг совсем рядом.'}
