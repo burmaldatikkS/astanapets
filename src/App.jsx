@@ -2105,6 +2105,25 @@ const STATUS_ICON = {
 };
 
 // Строка характеристики: иконка + подпись слева, значение (и при необходимости статус) справа
+// Значки пола в стиле lucide (текстовые ♀/♂ на iPhone съезжают вниз из-за метрик шрифта)
+function VenusIcon({ className = '' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="9" r="6" />
+      <path d="M12 15v7M9 19h6" />
+    </svg>
+  );
+}
+
+function MarsIcon({ className = '' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="10" cy="14" r="6" />
+      <path d="M14.5 9.5 21 3M15 3h6v6" />
+    </svg>
+  );
+}
+
 function DetailRow({ icon: Icon, glyph, label, value, status }) {
   const st = status ? STATUS_ICON[status] : null;
   return (
@@ -2318,7 +2337,7 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
         <DetailSection title="Порода и внешность">
           <DetailRow icon={Tag} label="Порода" value={pet.breed} />
           <DetailRow icon={Calendar} label="Возраст" value={pet.age_months > 0 ? formatAge(pet.age_months) : 'Уточняется'} />
-          <DetailRow glyph={pet.sex === 'female' ? '♀' : '♂'} label="Пол" value={SEX_LABEL[pet.sex]} />
+          <DetailRow icon={pet.sex === 'female' ? VenusIcon : MarsIcon} label="Пол" value={SEX_LABEL[pet.sex]} />
           <DetailRow icon={Ruler} label="Размер" value={SIZE_LABEL[pet.size] || "Не указан"} />
         </DetailSection>
 
