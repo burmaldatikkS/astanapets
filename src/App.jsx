@@ -17,7 +17,6 @@ import {
   Dog,
   Cat,
   Baby,
-  Users,
   Scissors,
   Wallet,
   ChevronRight,
@@ -27,6 +26,10 @@ import {
   ChevronDown,
   Sparkles,
   Quote,
+  Syringe,
+  Home,
+  Smile,
+  HeartHandshake,
 } from 'lucide-react';
 
 /* =====================================================================
@@ -87,7 +90,7 @@ export function trackEvent(eventName, payload = {}) {
  * character_tags | shelter_name | shelter_verified | shelter_instagram | reports_url |
  * curator_name | curator_phone | curator_whatsapp | kaspi_phone | kaspi_link |
  * chip_number | is_registered | is_vaccinated | is_sterilized | is_parasite_treated |
- * good_with_kids | good_with_animals | fundraising_goal_kzt | fundraising_collected_kzt |
+ * good_with_kids | good_with_animals | apartment_friendly | beginner_friendly | fundraising_goal_kzt | fundraising_collected_kzt |
  * fundraising_purpose | donation_usage | created_at
  *
  * ⚠️ ВСЕ ДАННЫЕ НИЖЕ ТЕСТОВЫЕ: телефоны, номера чипов, реквизиты и ссылки вымышлены.
@@ -123,6 +126,8 @@ const MOCK_PETS = [
     is_parasite_treated: true,
     good_with_kids: true,
     good_with_animals: false,
+    apartment_friendly: false,
+    beginner_friendly: true,
     fundraising_goal_kzt: 60000,
     fundraising_collected_kzt: 41500,
     fundraising_purpose: 'корм на зиму и ревакцинацию',
@@ -157,6 +162,8 @@ const MOCK_PETS = [
     is_parasite_treated: true,
     good_with_kids: true,
     good_with_animals: true,
+    apartment_friendly: true,
+    beginner_friendly: true,
     fundraising_goal_kzt: 35000,
     fundraising_collected_kzt: 12000,
     fundraising_purpose: 'стерилизацию и чипирование',
@@ -191,6 +198,8 @@ const MOCK_PETS = [
     is_parasite_treated: true,
     good_with_kids: true,
     good_with_animals: true,
+    apartment_friendly: true,
+    beginner_friendly: false,
     fundraising_goal_kzt: 0,
     fundraising_collected_kzt: 0,
     fundraising_purpose: '',
@@ -225,6 +234,8 @@ const MOCK_PETS = [
     is_parasite_treated: true,
     good_with_kids: false,
     good_with_animals: true,
+    apartment_friendly: true,
+    beginner_friendly: true,
     fundraising_goal_kzt: 25000,
     fundraising_collected_kzt: 25000,
     fundraising_purpose: 'лечение зубов',
@@ -259,6 +270,8 @@ const MOCK_PETS = [
     is_parasite_treated: true,
     good_with_kids: true,
     good_with_animals: true,
+    apartment_friendly: true,
+    beginner_friendly: true,
     fundraising_goal_kzt: 0,
     fundraising_collected_kzt: 0,
     fundraising_purpose: '',
@@ -293,6 +306,8 @@ const MOCK_PETS = [
     is_parasite_treated: false,
     good_with_kids: true,
     good_with_animals: false,
+    apartment_friendly: true,
+    beginner_friendly: false,
     fundraising_goal_kzt: 40000,
     fundraising_collected_kzt: 27800,
     fundraising_purpose: 'реабилитацию лапы и корм',
@@ -301,27 +316,127 @@ const MOCK_PETS = [
   },
 ];
 
-/**
- * Загрузка данных из Google Таблицы (лист `pets`) через opensheet.
- * Если таблица недоступна или пуста — показываем резервные MOCK_PETS.
- * Каждая строка затем проходит через normalizePet() в App.
- * Пример для Supabase:
- *   const { data } = await supabase.from('pets').select('*').eq('status', 'available');
- */
-const SHEET_API_URL = 'https://opensheet.elk.sh/10bRQ4TkJ1sY9PHzgxBgIYOFy15YNeabEziJC5kAynj4/pets';
+/* =====================================================================
+ * ЗАГРУЗКА ДАННЫХ ИЗ GOOGLE ТАБЛИЦЫ (2 листа через OpenSheet)
+ * ---------------------------------------------------------------------
+ * Лист `pets`     — питомцы (столбцы как в MOCK_PETS).
+ * Лист `shelters` — приюты. Столбцы:
+ *   shelter_name | shelter_verified | shelter_instagram | reports_url |
+ *   curator_name | curator_phone | curator_whatsapp | kaspi_phone | kaspi_link | donation_usage
+ *
+ * Питомец связывается с приютом по совпадению shelter_name (пробелы по краям не учитываются).
+ * Реквизиты и отчёты берутся из листа приютов; контакты куратора — из строки питомца,
+ * а если там пусто — из строки приюта.
+ * Если оба запроса упали или таблицы пустые — показываем резервные MOCK_PETS.
+ * ===================================================================== */
 
-async function fetchPets() {
+const SHEET_ID = '10bRQ4TkJ1sY9PHzgxBgIYOFy15YNeabEziJC5kAynj4';
+const PETS_API_URL = `https://opensheet.elk.sh/${SHEET_ID}/pets`;
+const SHELTERS_API_URL = `https://opensheet.elk.sh/${SHEET_ID}/shelters`;
+
+// Поля, которые всегда берутся из листа приютов (если там заполнены)
+const SHELTER_OWNED_FIELDS = ['shelter_verified', 'shelter_instagram', 'reports_url', 'kaspi_phone', 'kaspi_link', 'donation_usage'];
+// Поля куратора: сначала из строки питомца, при пустом значении — из приюта
+const CURATOR_FIELDS = ['curator_name', 'curator_phone', 'curator_whatsapp'];
+
+const cleanText = (v) => (v === undefined || v === null ? '' : String(v).trim());
+const isFilled = (v) => cleanText(v) !== '';
+const shelterKey = (name) => cleanText(name);
+
+// Загружает один лист; при ошибке возвращает null, чтобы не ронять второй запрос
+async function fetchSheet(url, label) {
   try {
-    const response = await fetch(SHEET_API_URL);
+    const response = await fetch(url);
     if (!response.ok) {
-      throw new Error(`Ошибка загрузки таблицы: ${response.status}`);
+      throw new Error(`Ошибка загрузки листа «${label}»: ${response.status}`);
     }
     const rows = await response.json();
-    return Array.isArray(rows) && rows.length > 0 ? rows : MOCK_PETS;
+    return Array.isArray(rows) ? rows : [];
   } catch (error) {
-    console.error('Не удалось загрузить данные из Google Таблицы, загружаем резервные данные:', error);
-    return MOCK_PETS;
+    console.error(`Не удалось загрузить лист «${label}» из Google Таблицы:`, error);
+    return null;
   }
+}
+
+// Подтягивает в строку питомца данные его приюта
+function mergePetWithShelter(pet, sheltersByName) {
+  const shelter = sheltersByName.get(shelterKey(pet.shelter_name));
+  const merged = { ...pet, shelter_name: cleanText(pet.shelter_name) };
+  if (!shelter) return merged;
+
+  SHELTER_OWNED_FIELDS.forEach((field) => {
+    if (isFilled(shelter[field])) merged[field] = shelter[field];
+  });
+  CURATOR_FIELDS.forEach((field) => {
+    if (!isFilled(merged[field]) && isFilled(shelter[field])) merged[field] = shelter[field];
+  });
+  return merged;
+}
+
+/**
+ * Загружает оба листа параллельно и склеивает их.
+ * Возвращает { pets, shelters, source }:
+ *   pets     — строки питомцев (ещё без normalizePet)
+ *   shelters — строки приютов из листа `shelters` или null, если лист недоступен/пуст
+ *   source   — 'sheet' | 'mock'
+ * Пример для Supabase: два запроса .from('pets') и .from('shelters') вместо fetchSheet.
+ */
+async function fetchData() {
+  const [petRows, shelterRows] = await Promise.all([
+    fetchSheet(PETS_API_URL, 'pets'),
+    fetchSheet(SHELTERS_API_URL, 'shelters'),
+  ]);
+
+  // Пустые строки таблицы не превращаются в пустые карточки
+  const pets = (petRows || []).filter((row) => isFilled(row.name));
+  const shelters = (shelterRows || [])
+    .filter((row) => isFilled(row.shelter_name))
+    .map((row) => ({ ...row, shelter_name: cleanText(row.shelter_name) }));
+
+  if (pets.length === 0) {
+    console.warn('Лист pets недоступен или пуст — показываем резервные данные MOCK_PETS.');
+    return { pets: MOCK_PETS, shelters: null, source: 'mock' };
+  }
+
+  const sheltersByName = new Map(shelters.map((sh) => [shelterKey(sh.shelter_name), sh]));
+  return {
+    pets: pets.map((pet) => mergePetWithShelter(pet, sheltersByName)),
+    shelters: shelters.length > 0 ? shelters : null,
+    source: 'sheet',
+  };
+}
+
+// Строка приюта из таблицы → нужные типы
+function normalizeShelter(row) {
+  const bool = (v) => v === true || v === 'TRUE' || v === 'true' || v === '1' || v === 1;
+  return {
+    shelter_name: cleanText(row.shelter_name),
+    shelter_verified: bool(row.shelter_verified),
+    shelter_instagram: cleanText(row.shelter_instagram),
+    reports_url: cleanText(row.reports_url),
+    curator_name: cleanText(row.curator_name),
+    curator_phone: cleanText(row.curator_phone),
+    curator_whatsapp: cleanText(row.curator_whatsapp),
+    kaspi_phone: cleanText(row.kaspi_phone),
+    kaspi_link: cleanText(row.kaspi_link),
+    donation_usage: cleanText(row.donation_usage),
+  };
+}
+
+// Карточка приюта, собранная из строки питомца (если приюта нет в листе `shelters`)
+function shelterFromPet(p) {
+  return {
+    shelter_name: p.shelter_name,
+    shelter_verified: p.shelter_verified,
+    shelter_instagram: p.shelter_instagram,
+    reports_url: p.reports_url,
+    curator_name: p.curator_name,
+    curator_phone: p.curator_phone,
+    curator_whatsapp: p.curator_whatsapp,
+    kaspi_phone: p.kaspi_phone,
+    kaspi_link: p.kaspi_link,
+    donation_usage: p.donation_usage,
+  };
 }
 
 // Приводит строку из таблицы к нужным типам (в Google Таблице всё приходит строками)
@@ -338,6 +453,8 @@ function normalizePet(row) {
     is_parasite_treated: bool(row.is_parasite_treated),
     good_with_kids: bool(row.good_with_kids),
     good_with_animals: bool(row.good_with_animals),
+    apartment_friendly: bool(row.apartment_friendly),
+    beginner_friendly: bool(row.beginner_friendly),
     fundraising_goal_kzt: num(row.fundraising_goal_kzt),
     fundraising_collected_kzt: num(row.fundraising_collected_kzt),
     chip_number: row.chip_number ? String(row.chip_number) : '',
@@ -414,6 +531,10 @@ const DEFAULT_FILTERS = {
   sterilized: false,
   goodWithKids: false,
   goodWithAnimals: false,
+  vaccinated: false,
+  apartmentFriendly: false,
+  beginnerFriendly: false,
+  openFundraising: false,
 };
 
 const FILTER_GROUPS = [
@@ -459,10 +580,17 @@ const FILTER_GROUPS = [
 
 const TOGGLES = [
   { key: 'chippedOnly', label: 'Только чипированные (по стандарту РК)', icon: Cpu },
-  { key: 'sterilized', label: 'Стерилизован / кастрирован', icon: Scissors },
+  { key: 'sterilized', label: 'Стерилизация / кастрация', icon: Scissors },
+  { key: 'vaccinated', label: 'Привит по возрасту', icon: Syringe },
   { key: 'goodWithKids', label: 'Ладит с детьми', icon: Baby },
-  { key: 'goodWithAnimals', label: 'Ладит с другими животными', icon: Users },
+  { key: 'goodWithAnimals', label: 'Ладит с другими животными', icon: PawPrint },
+  { key: 'apartmentFriendly', label: 'Подходит для квартиры', icon: Home },
+  { key: 'beginnerFriendly', label: 'Подойдёт новичку', icon: Smile },
+  { key: 'openFundraising', label: 'Открыт сбор на помощь', icon: HeartHandshake },
 ];
+
+// Сбор считается открытым, если цель задана и ещё не достигнута
+const hasOpenFundraising = (p) => p.fundraising_goal_kzt > 0 && p.fundraising_collected_kzt < p.fundraising_goal_kzt;
 
 function applyFilters(pets, f) {
   const q = f.query.trim().toLowerCase();
@@ -479,6 +607,10 @@ function applyFilters(pets, f) {
     if (f.sterilized && !p.is_sterilized) return false;
     if (f.goodWithKids && !p.good_with_kids) return false;
     if (f.goodWithAnimals && !p.good_with_animals) return false;
+    if (f.vaccinated && !p.is_vaccinated) return false;
+    if (f.apartmentFriendly && !p.apartment_friendly) return false;
+    if (f.beginnerFriendly && !p.beginner_friendly) return false;
+    if (f.openFundraising && !hasOpenFundraising(p)) return false;
     return true;
   });
 }
@@ -897,37 +1029,70 @@ function Header({ favoritesCount, favoritesOnly, onToggleFavorites }) {
   );
 }
 
-function HeroCollage({ pets, onOpenPet }) {
-  if (pets.length < 3) {
-    return <div className="h-96 animate-pulse rounded-3xl ap-sand-deep" />;
-  }
-  const [a, b, c] = pets;
+const COLLAGE_SLOTS = 3;
 
-  const PolaroidPhoto = ({ pet, badge, widthClass, tilt, floatClass, priority }) => (
-    <div className={tilt}>
-      <button
-        type="button"
-        onClick={() => onOpenPet(pet)}
-        className={`ap-card ap-card-hover group block rounded-3xl p-2 transition-all duration-300 hover:-translate-y-1 ${widthClass} ${floatClass}`}
-      >
-        <div className="ap-portrait relative overflow-hidden rounded-2xl ap-sand-deep">
-          <PhotoImg src={pet.photo_url} alt={pet.name} eager={priority} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
-          <div className="ap-photo-fade-bottom absolute inset-x-0 bottom-0 h-1/3" />
-          {badge}
-          <div className="absolute inset-x-3 bottom-3 text-left text-white">
-            <p className="text-lg font-extrabold leading-tight">{pet.name}</p>
-            <p className="text-xs font-semibold opacity-90">{formatAge(pet.age_months)}</p>
+/**
+ * Собирает 3 слота для коллажа на первом экране.
+ * Сначала — реальные питомцы из таблицы; если их меньше трёх (или данные ещё грузятся),
+ * недостающие слоты заполняются фото из резервного MOCK_PETS.
+ * Резервные фото — только декорация: без клички и без открытия карточки,
+ * чтобы посетитель не попал на тестовые контакты.
+ */
+function buildCollageSlots(pets) {
+  const real = pets.slice(0, COLLAGE_SLOTS).map((pet) => ({ pet, isFiller: false }));
+  const usedIds = new Set(real.map((slot) => slot.pet.id));
+  const usedPhotos = new Set(real.map((slot) => slot.pet.photo_url));
+  const fillers = MOCK_PETS.filter((p) => !usedIds.has(p.id) && !usedPhotos.has(p.photo_url))
+    .slice(0, COLLAGE_SLOTS - real.length)
+    .map((pet) => ({ pet, isFiller: true }));
+  return [...real, ...fillers];
+}
+
+function HeroCollage({ pets, onOpenPet }) {
+  const [a, b, c] = buildCollageSlots(pets);
+
+  const goToCatalog = () => {
+    trackEvent('hero_cta_clicked', { action: 'collage_placeholder' });
+    document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const PolaroidPhoto = ({ slot, badge, widthClass, tilt, floatClass, priority }) => {
+    if (!slot) return null;
+    const { pet, isFiller } = slot;
+    return (
+      <div className={tilt}>
+        <button
+          type="button"
+          onClick={() => (isFiller ? goToCatalog() : onOpenPet(pet))}
+          aria-label={isFiller ? 'Перейти в каталог питомцев' : `Открыть карточку: ${pet.name}`}
+          className={`ap-card ap-card-hover group block rounded-3xl p-2 transition-all duration-300 hover:-translate-y-1 ${widthClass} ${floatClass}`}
+        >
+          <div className="ap-portrait relative overflow-hidden rounded-2xl ap-sand-deep">
+            <PhotoImg
+              src={pet.photo_url}
+              alt={isFiller ? 'Питомец из приюта' : pet.name}
+              eager={priority}
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="ap-photo-fade-bottom absolute inset-x-0 bottom-0 h-1/3" />
+            {badge}
+            {!isFiller && (
+              <div className="absolute inset-x-3 bottom-3 text-left text-white">
+                <p className="text-lg font-extrabold leading-tight">{pet.name}</p>
+                <p className="text-xs font-semibold opacity-90">{formatAge(pet.age_months)}</p>
+              </div>
+            )}
           </div>
-        </div>
-      </button>
-    </div>
-  );
+        </button>
+      </div>
+    );
+  };
 
   return (
     <div className="relative mx-auto w-full max-w-xl" style={{ height: 470 }}>
       <div className="absolute left-0 top-8 z-10">
         <PolaroidPhoto
-          pet={a}
+          slot={a}
           priority
           widthClass="w-64"
           tilt="-rotate-3"
@@ -942,7 +1107,7 @@ function HeroCollage({ pets, onOpenPet }) {
       </div>
       <div className="absolute right-0 top-0">
         <PolaroidPhoto
-          pet={b}
+          slot={b}
           widthClass="w-56"
           tilt="rotate-3"
           floatClass="ap-float-slow"
@@ -955,7 +1120,7 @@ function HeroCollage({ pets, onOpenPet }) {
         />
       </div>
       <div className="absolute bottom-0 right-20 z-20">
-        <PolaroidPhoto pet={c} widthClass="w-52" tilt="-rotate-2" floatClass="ap-float-late" badge={null} />
+        <PolaroidPhoto slot={c} widthClass="w-52" tilt="-rotate-2" floatClass="ap-float-late" badge={null} />
       </div>
       <figure className="ap-card absolute bottom-2 left-4 z-30 w-60 rounded-2xl border border-stone-200/70 p-4">
         <Quote className="h-5 w-5 ap-text-accent" />
@@ -1072,7 +1237,7 @@ function Hero({ petsCount, sheltersCount, previewPets, onOpenPet }) {
         </div>
 
         <div className="hidden lg:block">
-          <HeroCollage pets={previewPets.slice(0, 3)} onOpenPet={onOpenPet} />
+          <HeroCollage pets={previewPets} onOpenPet={onOpenPet} />
         </div>
 
         <MobilePreviewSlider pets={previewPets} onOpenPet={onOpenPet} />
@@ -1081,7 +1246,19 @@ function Hero({ petsCount, sheltersCount, previewPets, onOpenPet }) {
   );
 }
 
-const ADVANCED_KEYS = ['sex', 'age', 'size', 'chippedOnly', 'sterilized', 'goodWithKids', 'goodWithAnimals'];
+const ADVANCED_KEYS = [
+  'sex',
+  'age',
+  'size',
+  'chippedOnly',
+  'sterilized',
+  'vaccinated',
+  'goodWithKids',
+  'goodWithAnimals',
+  'apartmentFriendly',
+  'beginnerFriendly',
+  'openFundraising',
+];
 
 function Filters({ filters, setFilter, reset, resultsCount }) {
   const [open, setOpen] = useState(false);
@@ -1603,6 +1780,7 @@ function Footer() {
 
 export default function App() {
   const [pets, setPets] = useState([]);
+  const [shelterRows, setShelterRows] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [activePet, setActivePet] = useState(null);
@@ -1613,9 +1791,13 @@ export default function App() {
 
   useEffect(() => {
     let alive = true;
-    fetchPets()
-      .then((rows) => alive && setPets(rows.map(normalizePet)))
-      .catch((e) => console.error('Не удалось загрузить питомцев', e))
+    fetchData()
+      .then(({ pets: petRows, shelters: sheltersFromSheet }) => {
+        if (!alive) return;
+        setPets(petRows.map(normalizePet));
+        setShelterRows(sheltersFromSheet ? sheltersFromSheet.map(normalizeShelter) : null);
+      })
+      .catch((e) => console.error('Не удалось загрузить данные', e))
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
@@ -1649,27 +1831,28 @@ export default function App() {
   const filtered = useMemo(() => applyFilters(availablePets, filters), [availablePets, filters]);
   const shown = useMemo(() => (favoritesOnly ? filtered.filter((p) => favorites.includes(p.id)) : filtered), [filtered, favorites, favoritesOnly]);
 
-  // Список приютов собирается из тех же строк таблицы (позже можно вынести в отдельный лист `shelters`)
+  // Секция «Помочь приютам»: из листа `shelters`, а если его нет — собирается из строк питомцев.
+  // petsCount — сколько активных (available) животных этого приюта сейчас в каталоге.
   const shelters = useMemo(() => {
+    const counts = new Map();
+    availablePets.forEach((p) => {
+      const key = shelterKey(p.shelter_name);
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+
+    if (shelterRows && shelterRows.length > 0) {
+      return shelterRows.map((sh) => ({ ...sh, petsCount: counts.get(shelterKey(sh.shelter_name)) || 0 }));
+    }
+
     const map = new Map();
     availablePets.forEach((p) => {
-      const prev = map.get(p.shelter_name);
-      if (prev) prev.petsCount += 1;
-      else
-        map.set(p.shelter_name, {
-          shelter_name: p.shelter_name,
-          shelter_verified: p.shelter_verified,
-          shelter_instagram: p.shelter_instagram,
-          reports_url: p.reports_url,
-          curator_name: p.curator_name,
-          kaspi_phone: p.kaspi_phone,
-          kaspi_link: p.kaspi_link,
-          donation_usage: p.donation_usage,
-          petsCount: 1,
-        });
+      const key = shelterKey(p.shelter_name);
+      if (!map.has(key)) map.set(key, { ...shelterFromPet(p), petsCount: counts.get(key) });
     });
     return [...map.values()];
-  }, [availablePets]);
+  }, [availablePets, shelterRows]);
+
+  const activeSheltersCount = useMemo(() => shelters.filter((sh) => sh.petsCount > 0).length, [shelters]);
 
   const setFilter = useCallback((key, value, opts = {}) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -1687,7 +1870,10 @@ export default function App() {
   };
 
   const openDonate = (pet, shelterOverride) => {
-    const shelter = shelterOverride || shelters.find((s) => s.shelter_name === pet.shelter_name);
+    const shelter =
+      shelterOverride ||
+      shelters.find((sh) => shelterKey(sh.shelter_name) === shelterKey(pet.shelter_name)) ||
+      shelterFromPet(pet);
     if (!shelter) return;
     setActivePet(null);
     setDonateTarget({ shelter, pet });
@@ -1723,7 +1909,7 @@ export default function App() {
       <GlobalStyles />
       <Header favoritesCount={favorites.length} favoritesOnly={favoritesOnly} onToggleFavorites={toggleFavoritesView} />
       <main>
-        <Hero petsCount={availablePets.length} sheltersCount={shelters.length} previewPets={availablePets} onOpenPet={openPet} />
+        <Hero petsCount={availablePets.length} sheltersCount={activeSheltersCount} previewPets={availablePets} onOpenPet={openPet} />
 
         <section id="catalog" className="scroll-mt-20">
           <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
