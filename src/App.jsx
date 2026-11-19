@@ -432,6 +432,12 @@ const SHELTER_OWNED_FIELDS = ['shelter_verified', 'shelter_instagram', 'reports_
 // Поля куратора: сначала из строки питомца, при пустом значении — из приюта
 const CURATOR_FIELDS = ['curator_name', 'curator_phone', 'curator_whatsapp'];
 
+// Номер для wa.me: только цифры, казахстанские 8XXXXXXXXXX → 7XXXXXXXXXX («+7 (700) 000-01-41» → 77000000141)
+function whatsappNumber(value) {
+  const d = String(value ?? '').replace(/\D/g, '');
+  return d.length === 11 && d.startsWith('8') ? `7${d.slice(1)}` : d;
+}
+
 const cleanText = (v) => (v === undefined || v === null ? '' : String(v).trim());
 const isFilled = (v) => cleanText(v) !== '';
 const shelterKey = (name) => cleanText(name);
@@ -2296,7 +2302,7 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
 
   const tags = sortTagsByCategory(splitTags(pet.character_tags));
   const waText = `Здравствуйте! Увидел(а) ${pet.name} на сайте AstanaPets, хочу узнать подробнее...`;
-  const waLink = `https://wa.me/${pet.curator_whatsapp}?text=${encodeURIComponent(waText)}`;
+  const waLink = `https://wa.me/${whatsappNumber(pet.curator_whatsapp)}?text=${encodeURIComponent(waText)}`;
   const base = { pet_id: pet.id, pet_name: pet.name, shelter: pet.shelter_name };
 
   const reveal = () => {
@@ -2449,7 +2455,16 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
           ) : (
             <div className="ap-toast space-y-3 rounded-2xl border-2 ap-sage-panel p-4">
               <p className="text-sm font-semibold ap-text-muted">
-                Куратор: <b className="font-bold ap-text-main">{pet.curator_name}</b> · {pet.shelter_name}
+                {cleanText(pet.curator_name) ? (
+                  <>
+                    Куратор: <b className="font-bold ap-text-main">{cleanText(pet.curator_name)}</b>
+                    {pet.shelter_name && <> · {shelterLabel(pet.shelter_name)}</>}
+                  </>
+                ) : (
+                  <>
+                    Куратор: <b className="font-bold ap-text-main">{shelterLabel(pet.shelter_name)}</b>
+                  </>
+                )}
               </p>
               <a
                 href={waLink}
