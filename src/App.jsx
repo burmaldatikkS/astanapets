@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { loadSheet } from './sheetSource.js';
 import {
   PawPrint,
@@ -1068,7 +1068,8 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 
 /* ---------- Теги характера (character_tags): 2 строгие категории ---------- */
 .ap-tag-trait { background-color: #EEF0DC; color: #3F4A1F; }   /* Категория 1: черты характера — оливковый туман */
-.ap-tag-skill { background-color: #FBEBD3; color: #8A4F17; }   /* Категория 2: навыки и здоровье — мёд */
+.ap-tag-skill { background-color: #FBEBD3; color: #8A4F17; }
+.ap-tag-more { background-color: transparent; color: #71717A; box-shadow: inset 0 0 0 1px #D4D4D8; }   /* Категория 2: навыки и здоровье — мёд */
 
 /* ---------- Фото ---------- */
 .ap-photo { aspect-ratio: 4 / 3; }
@@ -1190,6 +1191,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 
 .ap-dark .ap-tag-trait { background-color: rgba(163, 179, 107, 0.18); color: #CBD69A; }
 .ap-dark .ap-tag-skill { background-color: rgba(221, 161, 94, 0.18); color: #EBC08E; }
+.ap-dark .ap-tag-more { color: #A8A29E; box-shadow: inset 0 0 0 1px #4A4640; }
 .ap-dark .ap-neg { color: #E87A54; }
 .ap-dark .ap-neg-soft { background-color: rgba(249, 115, 22, 0.18); }
 .ap-dark .ap-badge-verified { background-color: rgba(2, 44, 34, 0.8); color: #6EE7B7; border-color: rgba(6, 95, 70, 0.6); }
@@ -2049,28 +2051,79 @@ function CardFundraiser({ collected, goal, purpose }) {
   );
 }
 
-// Раскладка тегов в ровную сетку из двух колонок: короткие теги встают парами, длинный занимает ряд целиком.
-// Берём теги по порядку важности, пока хватает рядов. Возвращает [{ tag, wide }].
-const LONG_TAG_CHARS = 13;
+// Теги характера в одну строку: плашки по ширине текста; что не влезло — «+N» (полный список в анкете).
+// Ширину меряем по невидимой копии строки, пересчитываем при изменении размера карточки и после загрузки шрифта.
+const TAG_GAP = 6;
 
-function packTags(tags, maxRows) {
-  const rows = [];
-  tags.forEach((tag) => {
-    if (tag.length > LONG_TAG_CHARS) {
-      if (rows.length < maxRows) rows.push([tag]);
-      return;
-    }
-    const halfRow = rows.find((row) => row.length === 1 && row[0].length <= LONG_TAG_CHARS);
-    if (halfRow) halfRow.push(tag);
-    else if (rows.length < maxRows) rows.push([tag]);
-  });
-  return rows.flatMap((row) => row.map((tag) => ({ tag, wide: tag.length > LONG_TAG_CHARS })));
+function TagRow({ tags }) {
+  const boxRef = useRef(null);
+  const measureRef = useRef(null);
+  const [visibleCount, setVisibleCount] = useState(tags.length);
+
+  useLayoutEffect(() => {
+    const box = boxRef.current;
+    const measure = measureRef.current;
+    if (!box || !measure) return undefined;
+    const recalc = () => {
+      const available = box.clientWidth;
+      const chips = [...measure.children];
+      const widths = chips.slice(0, tags.length).map((el) => el.offsetWidth);
+      const moreWidth = chips[tags.length]?.offsetWidth || 0;
+      let used = 0;
+      let count = 0;
+      for (let i = 0; i < widths.length; i += 1) {
+        const next = used + (count > 0 ? TAG_GAP : 0) + widths[i];
+        const restHidden = i < widths.length - 1;
+        const reserve = restHidden ? TAG_GAP + moreWidth : 0;
+        if (next + reserve > available) break;
+        used = next;
+        count += 1;
+      }
+      // Если влезли все, кроме места под «+N», проверяем без резерва
+      if (count === widths.length - 1 && used + TAG_GAP + widths[count] <= available) count += 1;
+      setVisibleCount(Math.max(1, count));
+    };
+    recalc();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(recalc) : null;
+    observer?.observe(box);
+    document.fonts?.ready?.then(recalc).catch(() => {});
+    return () => observer?.disconnect();
+  }, [tags]);
+
+  if (tags.length === 0) return null;
+  const hidden = tags.length - visibleCount;
+  const chip = 'shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold';
+
+  return (
+    <div ref={boxRef} className="relative">
+      <div className="flex gap-1.5 overflow-hidden">
+        {tags.slice(0, visibleCount).map((t) => (
+          <span key={t} className={`${chip} ${tagClass(t)}`}>
+            {t}
+          </span>
+        ))}
+        {hidden > 0 && (
+          <span className={`${chip} ap-tag-more`} title={tags.slice(visibleCount).join(', ')}>
+            +{hidden}
+          </span>
+        )}
+      </div>
+      {/* Невидимая копия для замера ширины плашек */}
+      <div ref={measureRef} aria-hidden="true" className="pointer-events-none invisible absolute left-0 top-0 flex gap-1.5">
+        {tags.map((t) => (
+          <span key={t} className={`${chip} ${tagClass(t)}`}>
+            {t}
+          </span>
+        ))}
+        <span className={`${chip} ap-tag-more`}>+{tags.length}</span>
+      </div>
+    </div>
+  );
 }
 
 function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
-  // Если идёт сбор, место под теги отдаём полоске сбора: 2 тега (один ряд) вместо 4 (два ряда)
   const hasFundraiser = pet.fundraising_goal_kzt > 0;
-  const tags = packTags(sortTagsByCategory(splitTags(pet.character_tags)), hasFundraiser ? 1 : 2);
+  const tags = useMemo(() => sortTagsByCategory(splitTags(pet.character_tags)), [pet.character_tags]);
   // Обложка 4:3 с умным кадрированием (для Cloudinary) и запасными фото
   const coverSrc = getSmartPhotoUrl(pet.photo_url);
   const coverFallbacks = useMemo(() => (pet.photos || []).map(getSmartPhotoUrl), [pet.photos]);
@@ -2120,20 +2173,8 @@ function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
       <div className="flex flex-1 flex-col gap-3 p-5">
         <h3 className="text-2xl font-bold tracking-tight ap-text-main">{pet.name}</h3>
 
-        {/* Ровная сетка: короткие теги по два в ряд, длинный — на весь ряд; не больше двух рядов (одного, если идёт сбор) */}
-        {tags.length > 0 && (
-          <div className="grid grid-cols-2 gap-1.5">
-            {tags.map(({ tag, wide }) => (
-              <span
-                key={tag}
-                title={tag}
-                className={`truncate rounded-full px-2.5 py-1 text-center text-xs font-bold ${wide ? 'col-span-2' : ''} ${tagClass(tag)}`}
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
+        {/* Теги — одной строкой; если идёт сбор, под ними мини-полоска сбора */}
+        <TagRow tags={tags} />
 
         {hasFundraiser && (
           <CardFundraiser collected={pet.fundraising_collected_kzt} goal={pet.fundraising_goal_kzt} purpose={pet.fundraising_purpose} />
