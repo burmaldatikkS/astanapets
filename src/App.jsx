@@ -42,13 +42,15 @@ import {
   Sun,
   Moon,
   Send,
+  AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 
 /* =====================================================================
  * СВЯЗЬ С АВТОРОМ В TELEGRAM
  * Впишите свой username без символа @ (например: 'astanapets_admin').
  * ===================================================================== */
-const AUTHOR_TELEGRAM_USERNAME = 'astpets';
+const AUTHOR_TELEGRAM_USERNAME = 'your_username';
 const TELEGRAM_DEFAULT_MESSAGE = 'Здравствуйте! Пишу с сайта AstanaPets по поводу...';
 
 /**
@@ -412,9 +414,13 @@ const MOCK_PETS = [
  * Питомец связывается с приютом по совпадению shelter_name (пробелы по краям не учитываются).
  * Реквизиты и отчёты берутся из листа приютов; контакты куратора — из строки питомца,
  * а если там пусто — из строки приюта.
- * Демо-база MOCK_PETS (вместе с демо-приютами) включается, когда в листе `pets`
- * нет ни одного активного животного: заполнено `name` и `status` = available.
- * Это же срабатывает, если оба запроса упали (например, в изолированном превью).
+ * Безопасность данных на живом сайте:
+ *   • успешные загрузки обоих листов кэшируются в localStorage;
+ *   • если таблица недоступна — берём последний сохранённый реальный кэш;
+ *   • нет и кэша — показываем блок ошибки с кнопкой «Обновить страницу»;
+ *   • в таблице 0 активных животных — дружелюбная заглушка, без подмены данных;
+ *   • тестовые MOCK_PETS подставляются ТОЛЬКО на localhost / 127.0.0.1 / в превью Claude,
+ *     когда таблица заблокирована (и как декоративные фото в коллаже первого экрана).
  * ===================================================================== */
 
 const SHEET_ID = '10bRQ4TkJ1sY9PHzgxBgIYOFy15YNeabEziJC5kAynj4';
@@ -460,41 +466,80 @@ function mergePetWithShelter(pet, sheltersByName) {
   return merged;
 }
 
+// Локальная разработка или превью Claude — только здесь допустимы тестовые данные
+function isDevOrPreview() {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname;
+  return host === 'localhost' || host === '127.0.0.1' || host.includes('claude');
+}
+
+const CACHE_KEYS = { pets: 'astanapets_cache_pets', shelters: 'astanapets_cache_shelters' };
+
+function saveCache(key, rows) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify({ savedAt: new Date().toISOString(), rows }));
+  } catch (_) {
+    /* хранилище недоступно или переполнено — просто не кэшируем */
+  }
+}
+
+function readCache(key) {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(key) || 'null');
+    return parsed && Array.isArray(parsed.rows) ? parsed.rows : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 /**
  * Загружает оба листа параллельно и склеивает их.
- * Возвращает { pets, shelters, source }:
+ * Возвращает { pets, shelters, source, status }:
  *   pets     — строки питомцев (ещё без normalizePet)
- *   shelters — строки приютов из листа `shelters` или null, если лист недоступен/пуст
- *   source   — 'sheet' | 'mock'
- * Пример для Supabase: два запроса .from('pets') и .from('shelters') вместо fetchSheet.
+ *   shelters — строки приютов или null (тогда приюты соберутся из строк питомцев)
+ *   source   — 'sheet' | 'cache' | 'mock'
+ *   status   — 'ok' | 'empty' (таблица загрузилась, но активных нет) | 'error' (нет ни данных, ни кэша)
  */
 async function fetchData() {
-  const [petRows, shelterRows] = await Promise.all([
+  const [freshPets, freshShelters] = await Promise.all([
     fetchSheet(PETS_API_URL, 'pets'),
     fetchSheet(SHELTERS_API_URL, 'shelters'),
   ]);
 
+  // Каждую успешную загрузку сохраняем как «последние реальные данные»
+  if (freshPets) saveCache(CACHE_KEYS.pets, freshPets);
+  if (freshShelters) saveCache(CACHE_KEYS.shelters, freshShelters);
+
+  const petRows = freshPets || readCache(CACHE_KEYS.pets);
+  const shelterRows = freshShelters || readCache(CACHE_KEYS.shelters);
+  const source = freshPets ? 'sheet' : 'cache';
+
+  if (!petRows) {
+    if (isDevOrPreview()) {
+      console.warn('Таблица недоступна (локальная разработка / превью) — показываем тестовые MOCK_PETS.');
+      return { pets: MOCK_PETS, shelters: null, source: 'mock', status: 'ok' };
+    }
+    console.error('Таблица недоступна, а сохранённых данных нет — показываем сообщение об ошибке.');
+    return { pets: [], shelters: null, source: 'none', status: 'error' };
+  }
+  if (!freshPets) console.warn('Таблица недоступна — показываем последние сохранённые данные из кэша.');
+
   // Активные записи: есть кличка и статус available (регистр и пробелы по краям не важны).
   // Пустые строки, строки с выпадающими списками и пристроенные (adopted) отбрасываются.
-  const activePets = (petRows || [])
+  const activePets = petRows
     .filter((row) => isFilled(row.name) && cleanText(row.status).toLowerCase() === 'available')
     .map((row) => ({ ...row, status: 'available' }));
-
-  if (activePets.length === 0) {
-    console.warn('В листе pets нет активных животных (status = available) — показываем демо-базу MOCK_PETS.');
-    // shelters: null → демо-приюты соберутся из строк MOCK_PETS
-    return { pets: MOCK_PETS, shelters: null, source: 'mock' };
-  }
 
   const shelters = (shelterRows || [])
     .filter((row) => isFilled(row.shelter_name))
     .map((row) => ({ ...row, shelter_name: cleanText(row.shelter_name) }));
-
   const sheltersByName = new Map(shelters.map((sh) => [shelterKey(sh.shelter_name), sh]));
+
   return {
     pets: activePets.map((pet) => mergePetWithShelter(pet, sheltersByName)),
     shelters: shelters.length > 0 ? shelters : null,
-    source: 'sheet',
+    source,
+    status: activePets.length > 0 ? 'ok' : 'empty',
   };
 }
 
@@ -890,11 +935,11 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 /* ---------- Теги характера (character_tags): 2 строгие категории ---------- */
 .ap-tag-trait { background-color: #EEF0DC; color: #3F4A1F; }   /* Категория 1: черты характера — оливковый туман */
 .ap-tag-skill { background-color: #FBEBD3; color: #8A4F17; }   /* Категория 2: навыки и здоровье — мёд */
-.ap-tag-energy { background-color: #FBEBD3; color: #8A4F17; }  /* бейдж «Чипирование при передаче» */
 
 /* ---------- Фото ---------- */
 .ap-photo { aspect-ratio: 4 / 3; }
 .ap-portrait { aspect-ratio: 4 / 5; }
+.ap-chip-badge { background-color: rgba(253, 252, 251, 0.95); color: #18181B; border-color: #E4E4E7; box-shadow: 0 1px 2px rgba(24, 24, 27, 0.08); }
 .ap-photo-count { background-color: rgba(24, 24, 27, 0.6); color: #FDFCFB; }
 .ap-thumb-active { box-shadow: 0 0 0 2px #FDFCFB, 0 0 0 4px #606C38; opacity: 1; }
 .ap-photo-fade {
@@ -1002,7 +1047,8 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .ap-dark .ap-input:focus { border-color: #8A9A52; background-color: #2B2926; box-shadow: 0 0 0 4px rgba(138, 154, 82, 0.18); }
 
 .ap-dark .ap-tag-trait { background-color: rgba(163, 179, 107, 0.18); color: #CBD69A; }
-.ap-dark .ap-tag-skill, .ap-dark .ap-tag-energy { background-color: rgba(221, 161, 94, 0.18); color: #EBC08E; }
+.ap-dark .ap-tag-skill { background-color: rgba(221, 161, 94, 0.18); color: #EBC08E; }
+.ap-dark .ap-chip-badge { background-color: rgba(31, 30, 27, 0.95); color: #F5F3EF; border-color: #3E3B36; box-shadow: 0 4px 10px rgba(12, 11, 10, 0.35); }
 .ap-dark .ap-thumb-active { box-shadow: 0 0 0 2px #1A1917, 0 0 0 4px #8A9A52; }
 
 /* Стандартные классы Tailwind, которые встречаются в разметке */
@@ -1793,6 +1839,13 @@ function Filters({ filters, setFilter, reset, resultsCount }) {
   );
 }
 
+// «Я Живой» → Приют «Я Живой» (не дублируем слово и кавычки, если они уже есть)
+function shelterLabel(name) {
+  const n = cleanText(name);
+  if (/^приют/i.test(n)) return n;
+  return /^[«"]/.test(n) ? `Приют ${n}` : `Приют «${n}»`;
+}
+
 function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
   const tags = sortTagsByCategory(splitTags(pet.character_tags)).slice(0, 4);
 
@@ -1812,15 +1865,11 @@ function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
           {pet.shelter_verified && (
             <span className="inline-flex items-center gap-1 rounded-full ap-sage px-2.5 py-1 text-xs font-bold ap-shadow-soft">
               <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
-              Проверен: {pet.shelter_name}
+              Проверенный
             </span>
           )}
-          <span
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ap-shadow-soft ${
-              pet.chip_number ? 'ap-surface ap-text-main' : 'ap-tag-energy'
-            }`}
-          >
-            <Cpu className="h-3.5 w-3.5 shrink-0" />
+          <span className="ap-chip-badge inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold">
+            <Cpu className={`h-3.5 w-3.5 shrink-0 ${pet.chip_number ? 'text-emerald-600' : 'ap-text-accent'}`} />
             {pet.chip_number ? `Чип №${pet.chip_number}` : 'Чипирование при передаче'}
           </span>
         </div>
@@ -1839,6 +1888,12 @@ function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
           <p className="mt-0.5 text-sm font-semibold ap-text-soft">
             {SEX_LABEL[pet.sex]} · {formatAge(pet.age_months)} · {SIZE_LABEL[pet.size]}
           </p>
+          {pet.shelter_name && (
+            <p className="mt-1.5 flex items-center gap-1.5 text-sm font-semibold text-zinc-600">
+              <Home className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 truncate">{shelterLabel(pet.shelter_name)}</span>
+            </p>
+          )}
         </div>
 
         {tags.length > 0 && (
@@ -2371,6 +2426,11 @@ function SheltersSection({ shelters, onDonate }) {
         <p className="mt-2 max-w-2xl text-base ap-on-dark-muted">
           Даже 1 000 ₸ — это корм на день для нескольких животных. Переводы идут напрямую приютам, без посредников и комиссий.
         </p>
+        {shelters.length === 0 && (
+          <p className="mt-8 rounded-2xl ap-shelter-card p-5 text-sm font-semibold ap-on-dark-muted">
+            Список приютов появится, как только загрузится каталог.
+          </p>
+        )}
         <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {shelters.map((s) => (
             <div
@@ -2433,6 +2493,7 @@ export default function App() {
   const [pets, setPets] = useState([]);
   const [shelterRows, setShelterRows] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [dataStatus, setDataStatus] = useState('ok'); // 'ok' | 'empty' | 'error'
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [activePet, setActivePet] = useState(null);
   const [donateTarget, setDonateTarget] = useState(null);
@@ -2468,12 +2529,18 @@ export default function App() {
   useEffect(() => {
     let alive = true;
     fetchData()
-      .then(({ pets: petRows, shelters: sheltersFromSheet }) => {
+      .then(({ pets: petRows, shelters: sheltersFromSheet, source, status }) => {
         if (!alive) return;
         setPets(petRows.map(normalizePet));
         setShelterRows(sheltersFromSheet ? sheltersFromSheet.map(normalizeShelter) : null);
+        setDataStatus(status);
+        if (status === 'error') trackEvent('catalog_load_failed', { reason: 'no_data_no_cache' });
+        if (source === 'cache') trackEvent('catalog_loaded_from_cache');
       })
-      .catch((e) => console.error('Не удалось загрузить данные', e))
+      .catch((e) => {
+        console.error('Не удалось загрузить данные', e);
+        if (alive) setDataStatus('error');
+      })
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
@@ -2612,6 +2679,35 @@ export default function App() {
                   {[0, 1, 2].map((i) => (
                     <div key={i} className="h-96 animate-pulse rounded-3xl ap-sand-deep" />
                   ))}
+                </div>
+              ) : dataStatus === 'error' ? (
+                <div className="ap-card rounded-3xl p-8 text-center sm:p-10" role="alert">
+                  <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-100">
+                    <AlertTriangle className="h-8 w-8 text-rose-600" />
+                  </span>
+                  <p className="mx-auto mt-4 max-w-md text-lg font-bold ap-text-main">
+                    Не удалось загрузить каталог питомцев. Проверьте интернет или обновите страницу
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      trackEvent('catalog_reload_clicked');
+                      window.location.reload();
+                    }}
+                    className="mt-6 inline-flex items-center gap-2 rounded-2xl ap-btn-accent px-7 py-4 text-base font-bold transition-all duration-300 active:scale-95"
+                  >
+                    <RefreshCw className="h-5 w-5" />
+                    Обновить страницу
+                  </button>
+                </div>
+              ) : dataStatus === 'empty' ? (
+                <div className="ap-card rounded-3xl p-8 text-center sm:p-10">
+                  <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full ap-accent-soft">
+                    <PawPrint className="h-8 w-8 ap-text-accent" />
+                  </span>
+                  <p className="mx-auto mt-4 max-w-md text-lg font-bold ap-text-main">
+                    Сейчас все наши хвостики на проверке или уже нашли дом. Загляните чуть позже!
+                  </p>
                 </div>
               ) : shown.length === 0 ? (
                 <div className="ap-card rounded-3xl border-2 border-dashed ap-line p-10 text-center">
