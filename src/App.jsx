@@ -1012,6 +1012,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 /* .ap-sage — бейджи проверки («Проверен», «Спасён в Астане») в медовом цвете */
 .ap-sage { background-color: #DDA15E; color: #283618; }
 .ap-sage-fill { background-color: #606C38; }
+.ap-sage-text { color: #4F5A2D; }   /* числа-акценты под цвет зелёной точки */
 .ap-sage-soft { background-color: #EEF0DC; }
 .ap-sage-panel { background-color: #F3F4E3; border-color: #CDD3AE; }
 .ap-toggle-idle { background-color: #FDFCFB; color: #3F3F46; border-color: #D9D3C9; }
@@ -1148,6 +1149,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .ap-dark .ap-sage, .ap-dark .ap-badge-honey { color: #1A1917; }
 
 .ap-dark .ap-sage-fill { background-color: #8A9A52; }
+.ap-dark .ap-sage-text { color: #B4C46E; }
 .ap-dark .ap-sage-soft { background-color: rgba(111, 125, 66, 0.22); }
 .ap-dark .ap-sage-panel { background-color: rgba(111, 125, 66, 0.14); border-color: rgba(111, 125, 66, 0.4); }
 .ap-dark .ap-track-off { background-color: #45413B; }
@@ -1808,14 +1810,14 @@ function Hero({ petsCount, sheltersCount, previewPets, onOpenPet }) {
             Найди друга из приюта в Астане и <span className="ap-text-accent">помоги тем, кто ещё ждёт дом</span>
           </h1>
 
-          <div className="ap-card mt-6 flex w-full max-w-full items-start gap-3 rounded-2xl border ap-line px-4 py-3 text-sm ap-text-muted sm:inline-flex sm:w-auto sm:items-center">
+          <div className="ap-card mt-6 flex w-full max-w-full items-start gap-3 rounded-2xl border ap-line px-4 py-3 text-sm ap-text-strong sm:inline-flex sm:w-auto sm:items-center">
             <span className="relative mt-1 flex h-3 w-3 shrink-0 sm:mt-0">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full ap-sage-fill opacity-75" />
               <span className="relative inline-flex h-3 w-3 rounded-full ap-sage-fill" />
             </span>
             <span className="min-w-0 break-words font-semibold leading-snug">
-              Сейчас ищут дом: <b className="font-bold ap-text-main">{petsCount}</b> {pluralRu(petsCount, ['питомец', 'питомца', 'питомцев'])} из{' '}
-              <b className="font-bold ap-text-main">{sheltersCount}</b>{' '}
+              Сейчас ищут дом: <b className="font-bold ap-sage-text">{petsCount}</b> {pluralRu(petsCount, ['питомец', 'питомца', 'питомцев'])} из{' '}
+              <b className="font-bold ap-sage-text">{sheltersCount}</b>{' '}
               {pluralRu(sheltersCount, ['проверенного приюта', 'проверенных приютов', 'проверенных приютов'])}
             </span>
           </div>
