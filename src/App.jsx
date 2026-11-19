@@ -48,7 +48,7 @@ import {
  * СВЯЗЬ С АВТОРОМ В TELEGRAM
  * Впишите свой username без символа @ (например: 'astanapets_admin').
  * ===================================================================== */
-const AUTHOR_TELEGRAM_USERNAME = 'your_username';
+const AUTHOR_TELEGRAM_USERNAME = 'astpets';
 const TELEGRAM_DEFAULT_MESSAGE = 'Здравствуйте! Пишу с сайта AstanaPets по поводу...';
 
 /**
