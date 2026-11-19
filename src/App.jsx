@@ -2269,8 +2269,8 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
 
   return (
     <Modal open={!!pet} onClose={onClose} labelledBy="pet-modal-title">
-      <div className="relative flex min-h-16 items-center px-4 pr-28 pt-3 sm:px-6">
-        <ShelterBadges pet={pet} withChip />
+      <div className="relative flex min-h-16 items-start px-4 pb-3 pr-28 pt-[19px] sm:px-6 sm:pr-28">
+        <ShelterBadges pet={pet} withChip className="min-w-0 flex-1" />
         <FavoriteButton active={isFavorite} onToggle={() => onToggleFavorite(pet)} className="absolute right-16 top-3" />
       </div>
 
