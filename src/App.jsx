@@ -44,8 +44,6 @@ import {
   Send,
   AlertTriangle,
   RefreshCw,
-  HandCoins,
-  Handshake,
 } from 'lucide-react';
 
 /* =====================================================================
@@ -2798,13 +2796,7 @@ function FaqItem({ item, open, onToggle, id }) {
   );
 }
 
-// Плашка «О проекте» перед FAQ: кто мы и чем не являемся (формулировки — о текущем положении дел)
-const ABOUT_POINTS = [
-  { icon: HandCoins, title: 'Не берём денег', text: 'Ни с тех, кто ищет питомца, ни с приютов.' },
-  { icon: Wallet, title: 'Не принимаем пожертвования', text: 'Переводы идут напрямую приютам через Kaspi — мы их даже не видим.' },
-  { icon: Handshake, title: 'Не участвуем в передаче', text: 'Мы не приют и не посредник: обо всём вы договариваетесь с куратором.' },
-];
-
+// Плашка «О проекте» перед FAQ (формулировки — о текущем положении дел, без обещаний «навсегда»)
 function AboutProject() {
   return (
     <div className="ap-card rounded-3xl border p-6 sm:p-8">
@@ -2813,20 +2805,11 @@ function AboutProject() {
         О проекте
       </span>
       <h2 className="mt-3 text-2xl font-bold tracking-tight ap-text-main sm:text-3xl">Сделано на чистом энтузиазме</h2>
-      <p className="mt-2 text-base font-medium leading-relaxed ap-text-muted">
-        AstanaPets — информационный сервис. Мы собираем анкеты питомцев из проверенных приютов Астаны в одном месте, чтобы им было проще найти дом.
+      <p className="mt-3 text-base font-medium leading-relaxed ap-text-muted">
+        AstanaPets — информационный сервис: мы собираем анкеты питомцев из проверенных приютов Астаны в одном месте, чтобы им было проще найти дом.
+        Мы не берём денег ни с тех, кто ищет питомца, ни с приютов и не принимаем пожертвования — переводы идут напрямую приютам. Мы не приют и
+        не посредник, поэтому обо всём, что касается передачи, вы договариваетесь с куратором.
       </p>
-      <ul className="mt-6 grid gap-4 sm:grid-cols-3">
-        {ABOUT_POINTS.map(({ icon: Icon, title, text }) => (
-          <li key={title} className="rounded-2xl ap-sand p-4">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl ap-btn-accent">
-              <Icon className="h-5 w-5" />
-            </span>
-            <p className="mt-3 text-sm font-bold ap-text-main">{title}</p>
-            <p className="mt-1 text-sm font-medium leading-relaxed ap-text-muted">{text}</p>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
