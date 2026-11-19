@@ -1057,6 +1057,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .ap-neg { color: #C85A32; }                            /* отрицательные статусы: тёплая терракота вместо красного */
 .ap-neg-soft { background-color: rgba(249, 115, 22, 0.15); }  /* orange-500 / 15% */
 .ap-badge-verified { background-color: #D1FAE5; color: #065F46; border-color: #A7F3D0; }   /* emerald-100 / 800 / 200 */
+.ap-badge-new { background-color: #E36243; color: #FFFFFF; box-shadow: 0 2px 10px rgba(227, 98, 67, 0.35); }
 .ap-badge-shelter { background-color: #F3F1ED; color: #27272A; border-color: #E4E4E7; }
 .ap-focus-face { object-position: 50% 22%; }  /* держим верх кадра с головой животного */
 .ap-photo-count { background-color: rgba(24, 24, 27, 0.6); color: #FDFCFB; }
@@ -2012,6 +2013,24 @@ function ShelterBadges({ pet, withChip = false, className = '' }) {
   );
 }
 
+// «Новая анкета»: столбец created_at в таблице, формат 2026-11-19 или 19.11.2026
+const NEW_PET_DAYS = 14;
+
+function parseSheetDate(value) {
+  const v = cleanText(value);
+  if (!v) return null;
+  const ru = v.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  const d = ru ? new Date(Number(ru[3]), Number(ru[2]) - 1, Number(ru[1])) : new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function isNewPet(pet) {
+  const added = parseSheetDate(pet.created_at);
+  if (!added) return false;
+  const days = (Date.now() - added.getTime()) / 86400000;
+  return days >= -1 && days < NEW_PET_DAYS;
+}
+
 // Вместо сбора (если его нет): начало истории питомца, а без истории — что уже сделано по здоровью
 function CardTeaser({ pet }) {
   const story = cleanText(pet.description);
@@ -2074,6 +2093,12 @@ function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
         </button>
         <div className="ap-photo-fade pointer-events-none absolute inset-x-0 top-0 h-2/3" />
         <div className="pointer-events-none absolute left-3 right-16 top-3 flex flex-col items-start gap-1.5">
+          {isNewPet(pet) && (
+            <span className="ap-badge-new inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold">
+              <Sparkles className="h-3.5 w-3.5 shrink-0" />
+              {pet.sex === 'female' ? 'Новенькая' : 'Новенький'}
+            </span>
+          )}
           {pet.shelter_verified && (
             <span className="ap-badge-verified inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold">
               <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
