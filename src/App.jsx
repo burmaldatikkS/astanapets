@@ -1555,23 +1555,6 @@ function SideDrawer({ open, onClose, theme, onThemeChange }) {
             </div>
           </section>
 
-          <section className="ap-card rounded-2xl p-5">
-            <span className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl ap-btn-telegram">
-              <BrandIcon src={TELEGRAM_ICON_SRC} fallback={Send} className="h-5 w-5" />
-            </span>
-            <p className="text-base font-bold leading-snug tracking-tight ap-text-main">Есть вопросы, идеи или хотите добавить приют Астаны?</p>
-            <p className="mt-1 text-sm ap-text-muted">Напишите автору проекта — отвечу в Telegram.</p>
-            <button
-              type="button"
-              onClick={openAuthorTelegram}
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl ap-btn-telegram px-5 py-3.5 text-base font-bold transition-all duration-300 active:scale-95"
-            >
-              <BrandIcon src={TELEGRAM_ICON_SRC} fallback={Send} className="h-5 w-5" />
-              Написать в Telegram
-            </button>
-            <p className="mt-2 text-center text-sm font-semibold ap-text-soft">@{AUTHOR_TELEGRAM_USERNAME}</p>
-          </section>
-
           <section>
             <p className="mb-2 text-xs font-bold uppercase tracking-wider ap-text-faint">Разделы</p>
             <div className="divide-y ap-divide overflow-hidden rounded-2xl border ap-line ap-paper">
@@ -2828,14 +2811,24 @@ function FaqSection() {
             </div>
           ))}
         </div>
-        <div className="mt-6 flex flex-col items-start gap-3 rounded-2xl border ap-line ap-paper p-5 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold ap-text-strong">Не нашли ответ? Напишите автору проекта.</p>
+        <div className="mt-6 flex flex-col items-start gap-4 rounded-2xl border ap-line ap-paper p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div className="flex items-start gap-4">
+            <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-2xl ap-btn-telegram sm:inline-flex">
+              <BrandIcon src={TELEGRAM_ICON_SRC} fallback={Send} className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-base font-bold leading-snug ap-text-main">Остались вопросы, есть предложения или хотите добавить приют?</p>
+              <p className="mt-1 text-sm font-medium ap-text-muted">
+                Свяжитесь с автором проекта в Telegram — <span className="font-semibold ap-text-strong">@{AUTHOR_TELEGRAM_USERNAME}</span>
+              </p>
+            </div>
+          </div>
           <button
             type="button"
             onClick={openAuthorTelegram}
-            className="inline-flex shrink-0 items-center gap-2 rounded-2xl ap-btn-telegram px-5 py-3 text-sm font-bold transition-all duration-300 active:scale-95"
+            className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl ap-btn-telegram px-5 py-3.5 text-base font-bold transition-all duration-300 active:scale-95 sm:w-auto"
           >
-            <Send className="h-4 w-4" />
+            <BrandIcon src={TELEGRAM_ICON_SRC} fallback={Send} className="h-5 w-5" />
             Написать в Telegram
           </button>
         </div>
