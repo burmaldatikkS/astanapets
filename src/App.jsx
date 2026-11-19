@@ -1488,6 +1488,7 @@ function BrandIcon({ src, fallback: Fallback, className = 'h-5 w-5' }) {
 }
 
 const TELEGRAM_ICON_SRC = '/icons/telegram.svg';
+const KASPI_ICON_SRC = '/icons/kaspi.png'; // белый знак Kaspi на прозрачном фоне — для красной кнопки
 const WHATSAPP_ICON_SRC = '/icons/whatsapp.svg';
 
 function SideDrawer({ open, onClose, theme, onThemeChange }) {
@@ -1864,10 +1865,8 @@ function Hero({ petsCount, sheltersCount, previewPets, onOpenPet }) {
   );
 }
 
+// За кнопкой «Ещё фильтры» — только тумблеры; вид, пол, возраст и размер всегда на виду
 const ADVANCED_KEYS = [
-  'sex',
-  'age',
-  'size',
   'chippedOnly',
   'sterilized',
   'vaccinated',
@@ -1882,7 +1881,7 @@ function Filters({ filters, setFilter, reset, resultsCount }) {
   const [open, setOpen] = useState(false);
   const dirty = isFiltersDirty(filters);
   const advancedCount = ADVANCED_KEYS.filter((k) => filters[k] !== DEFAULT_FILTERS[k]).length;
-  const advancedGroups = FILTER_GROUPS.filter((g) => g.key !== 'species');
+  const basicGroups = FILTER_GROUPS.filter((g) => g.key !== 'species');
   const highlighted = open || advancedCount > 0;
 
   const toggleOpen = () => {
@@ -1916,7 +1915,7 @@ function Filters({ filters, setFilter, reset, resultsCount }) {
           }`}
         >
           <SlidersHorizontal className="h-4 w-4" />
-          Расширенный поиск
+          Ещё фильтры
           {advancedCount > 0 && (
             <span className="inline-flex h-6 items-center justify-center rounded-full ap-btn-caramel px-2 text-xs font-bold">
               {advancedCount}
@@ -1926,22 +1925,24 @@ function Filters({ filters, setFilter, reset, resultsCount }) {
         </button>
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-[auto_auto_1fr] lg:gap-8">
+        {basicGroups.map((group) => (
+          <div key={group.key} className="min-w-0">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide ap-text-soft">{group.label}</p>
+            <div className="ap-no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+              {group.options.map((opt) => (
+                <Chip key={opt.value} icon={opt.icon} active={filters[group.key] === opt.value} onClick={() => setFilter(group.key, opt.value)}>
+                  {opt.label}
+                </Chip>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
       <div id="advanced-filters" className={`ap-collapse ${open ? 'is-open' : ''}`} aria-hidden={!open}>
         <div>
           <div className="space-y-4 border-t ap-line pt-4">
-            {advancedGroups.map((group) => (
-              <div key={group.key}>
-                <p className="mb-2 text-xs font-bold uppercase tracking-wide ap-text-soft">{group.label}</p>
-                <div className="ap-no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
-                  {group.options.map((opt) => (
-                    <Chip key={opt.value} icon={opt.icon} active={filters[group.key] === opt.value} onClick={() => setFilter(group.key, opt.value)}>
-                      {opt.label}
-                    </Chip>
-                  ))}
-                </div>
-              </div>
-            ))}
-
             <div>
               <p className="mb-2 text-xs font-bold uppercase tracking-wide ap-text-soft">Здоровье и характер</p>
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -2592,13 +2593,6 @@ function DonateModal({ target, onClose, notify }) {
           {pet && <p className="mt-1 text-sm font-semibold ap-text-soft">Сбор в карточке: {pet.name}</p>}
         </div>
 
-        <div className="flex items-start gap-3 rounded-2xl ap-sage p-4">
-          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
-          <p className="text-sm font-semibold leading-relaxed">
-            <b className="font-bold">0% комиссии.</b> Перевод уходит напрямую на официальные реквизиты приюта «{shelter.shelter_name}».
-          </p>
-        </div>
-
         {pet && <ProgressBar collected={pet.fundraising_collected_kzt} goal={pet.fundraising_goal_kzt} purpose={pet.fundraising_purpose} />}
 
         <div className="rounded-2xl border ap-line ap-sand p-4">
@@ -2626,8 +2620,8 @@ function DonateModal({ target, onClose, notify }) {
           onClick={() => trackEvent('kaspi_link_clicked', base)}
           className="inline-flex w-full items-center justify-center gap-2 rounded-2xl ap-btn-kaspi px-5 py-4 text-base font-bold transition-all duration-300 active:scale-95"
         >
-          <Wallet className="h-5 w-5" />
-          Перевести через Kaspi
+          <BrandIcon src={KASPI_ICON_SRC} fallback={Wallet} className="h-6 w-6" />
+          Оплатить через Kaspi Pay
         </a>
 
         <div>
@@ -2647,8 +2641,9 @@ function DonateModal({ target, onClose, notify }) {
           </div>
         </div>
 
-        <p className="text-xs font-medium leading-relaxed ap-text-soft">
-          AstanaPets не принимает деньги и не видит ваши платежи. Пожалуйста, проверяйте имя получателя в Kaspi перед переводом.
+        <p className="flex items-start gap-1.5 text-xs font-medium leading-relaxed ap-text-soft">
+          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          Деньги уходят приюту напрямую, без комиссии. Перед оплатой сверьте имя получателя в Kaspi.
         </p>
       </div>
     </Modal>
@@ -2665,8 +2660,19 @@ function SheltersSection({ shelters, onDonate }) {
         </span>
         <h2 className="mt-3 text-3xl font-bold tracking-tight ap-on-dark sm:text-4xl">Помочь приютам</h2>
         <p className="mt-2 max-w-2xl text-base ap-on-dark-muted">
-          Даже 1 000 ₸ — это корм на день для нескольких животных. Переводы идут напрямую приютам, без посредников и комиссий.
+          Даже 1 000 ₸ — это корм на день для нескольких животных.
         </p>
+        {/* Единственное подробное объяснение, как устроены деньги; в остальных местах — короткие подписи */}
+        <div className="mt-6 flex max-w-3xl items-start gap-3 rounded-2xl ap-shelter-card p-5">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 ap-on-dark" />
+          <div>
+            <p className="text-base font-bold ap-on-dark">Как это устроено</p>
+            <p className="mt-1 text-sm font-medium leading-relaxed ap-on-dark-muted">
+              Вы переводите деньги через Kaspi прямо на реквизиты приюта — без комиссии и без нас посередине. AstanaPets платежи не принимает и не
+              видит, а на что потрачены средства, приюты показывают в своих отчётах в Instagram.
+            </p>
+          </div>
+        </div>
         {shelters.length === 0 && (
           <p className="mt-8 rounded-2xl ap-shelter-card p-5 text-sm font-semibold ap-on-dark-muted">
             Список приютов появится, как только загрузится каталог.
@@ -2795,7 +2801,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Куда идут пожертвования?',
-    a: 'Напрямую приюту — через Kaspi по ссылке или номеру куратора. AstanaPets не принимает деньги и не видит ваших платежей. На что тратятся средства, написано в карточке приюта, а отчёты приюты публикуют в своём Instagram. Перед переводом сверьте имя получателя.',
+    a: 'Напрямую приюту — через Kaspi по ссылке или номеру куратора. На что тратятся средства, написано в карточке приюта, а отчёты приюты публикуют в своём Instagram.',
   },
   {
     q: 'Что значит «Проверен»?',
@@ -2918,8 +2924,8 @@ function Footer() {
           <p className="text-base font-bold ap-text-main">Сделано на чистом энтузиазме</p>
           <p className="mt-1.5 text-sm font-medium leading-relaxed ap-text-muted">
             AstanaPets — информационный сервис: мы собираем анкеты питомцев из проверенных приютов Астаны в одном месте, чтобы им было проще найти
-            дом. Мы не берём денег ни с тех, кто ищет питомца, ни с приютов и не принимаем пожертвования — переводы идут напрямую приютам. Мы не приют
-            и не посредник, поэтому обо всём, что касается передачи, вы договариваетесь с куратором.
+            дом. Мы не берём денег ни с тех, кто ищет питомца, ни с приютов. Мы не приют и не посредник, поэтому обо всём, что касается передачи, вы
+            договариваетесь с куратором.
           </p>
         </div>
         <p className="text-xs font-semibold ap-text-faint">© {new Date().getFullYear()} AstanaPets · Пилотный проект · Астана, Казахстан</p>
