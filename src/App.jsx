@@ -44,7 +44,7 @@ import {
  * ===================================================================== */
 
 // Укажите номер счётчика Яндекс.Метрики, когда подключите его в index.html
-const YM_COUNTER_ID = 114363784; // например: 98765432
+const YM_COUNTER_ID = 114363784;
 
 /**
  * Единый трекер событий.
@@ -360,7 +360,9 @@ const MOCK_PETS = [
  * Питомец связывается с приютом по совпадению shelter_name (пробелы по краям не учитываются).
  * Реквизиты и отчёты берутся из листа приютов; контакты куратора — из строки питомца,
  * а если там пусто — из строки приюта.
- * Если оба запроса упали или таблицы пустые — показываем резервные MOCK_PETS.
+ * Демо-база MOCK_PETS (вместе с демо-приютами) включается, когда в листе `pets`
+ * нет ни одного активного животного: заполнено `name` и `status` = available.
+ * Это же срабатывает, если оба запроса упали (например, в изолированном превью).
  * ===================================================================== */
 
 const SHEET_ID = '10bRQ4TkJ1sY9PHzgxBgIYOFy15YNeabEziJC5kAynj4';
@@ -420,20 +422,25 @@ async function fetchData() {
     fetchSheet(SHELTERS_API_URL, 'shelters'),
   ]);
 
-  // Пустые строки таблицы не превращаются в пустые карточки
-  const pets = (petRows || []).filter((row) => isFilled(row.name));
+  // Активные записи: есть кличка и статус available (регистр и пробелы по краям не важны).
+  // Пустые строки, строки с выпадающими списками и пристроенные (adopted) отбрасываются.
+  const activePets = (petRows || [])
+    .filter((row) => isFilled(row.name) && cleanText(row.status).toLowerCase() === 'available')
+    .map((row) => ({ ...row, status: 'available' }));
+
+  if (activePets.length === 0) {
+    console.warn('В листе pets нет активных животных (status = available) — показываем демо-базу MOCK_PETS.');
+    // shelters: null → демо-приюты соберутся из строк MOCK_PETS
+    return { pets: MOCK_PETS, shelters: null, source: 'mock' };
+  }
+
   const shelters = (shelterRows || [])
     .filter((row) => isFilled(row.shelter_name))
     .map((row) => ({ ...row, shelter_name: cleanText(row.shelter_name) }));
 
-  if (pets.length === 0) {
-    console.warn('Лист pets недоступен или пуст — показываем резервные данные MOCK_PETS.');
-    return { pets: MOCK_PETS, shelters: null, source: 'mock' };
-  }
-
   const sheltersByName = new Map(shelters.map((sh) => [shelterKey(sh.shelter_name), sh]));
   return {
-    pets: pets.map((pet) => mergePetWithShelter(pet, sheltersByName)),
+    pets: activePets.map((pet) => mergePetWithShelter(pet, sheltersByName)),
     shelters: shelters.length > 0 ? shelters : null,
     source: 'sheet',
   };
