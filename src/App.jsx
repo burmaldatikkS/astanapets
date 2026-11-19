@@ -2019,7 +2019,7 @@ function CardTeaser({ pet }) {
     return (
       <div className="flex gap-2.5 rounded-2xl border ap-line ap-surface p-3">
         <Quote className="mt-0.5 h-4 w-4 shrink-0 ap-text-faint" />
-        <p className="line-clamp-3 text-sm font-medium leading-relaxed ap-text-muted">{story}</p>
+        <p className="line-clamp-2 text-sm font-medium leading-relaxed ap-text-muted">{story}</p>
       </div>
     );
   }
