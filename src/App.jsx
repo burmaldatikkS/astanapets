@@ -2850,8 +2850,8 @@ function Footer() {
       <div className="relative mx-auto max-w-6xl space-y-4 px-4 py-10 md:pr-72">
         {/* Полупрозрачная лапа из логотипа справа */}
         <svg
-          viewBox="10 11 28 28"
-          className="ap-footer-paw pointer-events-none absolute right-4 top-1/2 hidden h-56 w-56 -translate-y-1/2 -rotate-12 md:block"
+          viewBox="7 8 34 34"
+          className="ap-footer-paw pointer-events-none absolute right-4 top-1/2 hidden h-64 w-64 -translate-y-1/2 -rotate-12 md:block"
           aria-hidden="true"
         >
           <PawShape />
