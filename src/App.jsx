@@ -2583,14 +2583,20 @@ function SheltersSection({ shelters, onDonate }) {
             Список приютов появится, как только загрузится каталог.
           </p>
         )}
-        <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:items-center">
+        <div className="grid flex-1 grid-cols-1 gap-5 sm:grid-cols-2">
           {shelters.map((s) => (
             <div
               key={s.shelter_name}
               className="ap-shelter-card flex flex-col gap-3 rounded-3xl p-6 transition-all duration-300 hover:-translate-y-1"
             >
               <div className="flex items-start justify-between gap-2">
-                <h3 className="text-xl font-bold ap-on-dark tracking-tight">{s.shelter_name}</h3>
+                <div className="min-w-0">
+                  <h3 className="text-xl font-bold ap-on-dark tracking-tight">{quotedName(s.shelter_name)}</h3>
+                  <p className="mt-1 text-sm font-semibold ap-on-dark-soft">
+                    Ищут дом: <b className="font-bold ap-on-dark">{s.petsCount}</b> {pluralRu(s.petsCount, ['питомец', 'питомца', 'питомцев'])}
+                  </p>
+                </div>
                 {s.shelter_verified && (
                   <span className="inline-flex shrink-0 items-center gap-1 rounded-full ap-badge-honey px-2.5 py-1 text-xs font-bold">
                     <ShieldCheck className="h-3.5 w-3.5" />
@@ -2598,10 +2604,7 @@ function SheltersSection({ shelters, onDonate }) {
                   </span>
                 )}
               </div>
-              <p className="text-sm font-medium ap-on-dark-muted">{s.donation_usage}</p>
-              <p className="text-sm font-semibold ap-on-dark-soft">
-                Ищут дом: <b className="font-bold ap-on-dark">{s.petsCount}</b> {pluralRu(s.petsCount, ['питомец', 'питомца', 'питомцев'])}
-              </p>
+              {s.donation_usage && <p className="text-sm font-medium ap-on-dark-muted">{s.donation_usage}</p>}
               <button
                 type="button"
                 onClick={() => onDonate(null, s)}
@@ -2614,8 +2617,76 @@ function SheltersSection({ shelters, onDonate }) {
             </div>
           ))}
         </div>
+        <HelpIllustration className="hidden w-80 shrink-0 lg:block" />
+        </div>
       </div>
     </section>
+  );
+}
+
+// Название в «ёлочках», если кавычек ещё нет: Я Живой → «Я Живой»
+function quotedName(name) {
+  const n = String(name ?? '').trim();
+  return !n || /^[«"„“]/.test(n) ? n : `«${n}»`;
+}
+
+// Дружелюбная иллюстрация справа от карточек приютов: пёс и кот под сердечком
+function HelpIllustration({ className = '' }) {
+  const ink = '#283618';
+  return (
+    <svg viewBox="0 0 320 230" className={className} aria-hidden="true" focusable="false">
+      {/* пунктирная тропинка из следов */}
+      <path d="M8 196 C 40 150, 70 210, 60 150 S 20 90, 70 70" fill="none" stroke="#F0C48F" strokeOpacity="0.35" strokeWidth="2.5" strokeDasharray="2 9" strokeLinecap="round" />
+      <ellipse cx="165" cy="212" rx="118" ry="9" fill="#000" opacity="0.18" />
+
+      {/* сердечки */}
+      <g className="ap-float-slow">
+        <path d="M165 72 C 150 60, 136 48, 146 36 C 153 28, 162 32, 165 40 C 168 32, 177 28, 184 36 C 194 48, 180 60, 165 72 Z" fill="#E76F51" />
+        <path d="M152 40 q4 -5 9 -3" fill="none" stroke="#fff" strokeOpacity="0.5" strokeWidth="2.5" strokeLinecap="round" />
+      </g>
+      <path className="ap-float" d="M118 46 c-5 -4 -9 -8 -6 -11 c2 -2 5 -1 6 1 c1 -2 4 -3 6 -1 c3 3 -1 7 -6 11 z" fill="#DDA15E" />
+      <path className="ap-float-late" d="M214 30 c-5 -4 -9 -8 -6 -11 c2 -2 5 -1 6 1 c1 -2 4 -3 6 -1 c3 3 -1 7 -6 11 z" fill="#F0C48F" />
+      <circle cx="248" cy="62" r="2.5" fill="#F0C48F" opacity="0.7" />
+      <circle cx="92" cy="30" r="2" fill="#F0C48F" opacity="0.6" />
+
+      {/* пёс */}
+      <path d="M66 172 C 44 166, 40 144, 50 132" fill="none" stroke="#DDA15E" strokeWidth="10" strokeLinecap="round" />
+      <ellipse cx="108" cy="166" rx="44" ry="42" fill="#DDA15E" />
+      <ellipse cx="114" cy="172" rx="21" ry="28" fill="#F0C48F" />
+      <rect x="93" y="186" width="15" height="24" rx="7.5" fill="#DDA15E" />
+      <rect x="118" y="186" width="15" height="24" rx="7.5" fill="#DDA15E" />
+      <ellipse cx="100.5" cy="208" rx="9" ry="5" fill="#F0C48F" />
+      <ellipse cx="125.5" cy="208" rx="9" ry="5" fill="#F0C48F" />
+      <circle cx="114" cy="110" r="34" fill="#DDA15E" />
+      <path d="M86 92 C 68 94, 64 126, 77 134 C 86 128, 90 112, 93 99 Z" fill="#BC6C25" />
+      <path d="M142 92 C 160 94, 164 126, 151 134 C 142 128, 138 112, 135 99 Z" fill="#BC6C25" />
+      <ellipse cx="114" cy="124" rx="16" ry="12" fill="#F0C48F" />
+      <circle cx="101" cy="105" r="4" fill={ink} />
+      <circle cx="127" cy="105" r="4" fill={ink} />
+      <circle cx="102.3" cy="103.6" r="1.3" fill="#fff" />
+      <circle cx="128.3" cy="103.6" r="1.3" fill="#fff" />
+      <ellipse cx="114" cy="117" rx="5.5" ry="4" fill={ink} />
+      <ellipse cx="115" cy="132" rx="3.5" ry="4.5" fill="#E76F51" />
+      <path d="M114 121 v5 M107 127 q7 5 14 0" fill="none" stroke={ink} strokeWidth="2" strokeLinecap="round" />
+
+      {/* кот */}
+      <path d="M248 196 C 286 192, 292 154, 270 142" fill="none" stroke="#FEFAE0" strokeWidth="10" strokeLinecap="round" />
+      <ellipse cx="222" cy="170" rx="35" ry="38" fill="#FEFAE0" />
+      <ellipse cx="222" cy="178" rx="17" ry="22" fill="#F7EBCB" />
+      <rect x="206" y="190" width="13" height="20" rx="6.5" fill="#FEFAE0" />
+      <rect x="226" y="190" width="13" height="20" rx="6.5" fill="#FEFAE0" />
+      <path d="M197 112 L 199 80 L 218 97 Z" fill="#FEFAE0" />
+      <path d="M245 112 L 243 80 L 224 97 Z" fill="#FEFAE0" />
+      <path d="M202 102 L 203 88 L 212 96 Z" fill="#F0C48F" />
+      <path d="M240 102 L 239 88 L 230 96 Z" fill="#F0C48F" />
+      <circle cx="221" cy="121" r="28" fill="#FEFAE0" />
+      <path d="M207 119 q5 -6 10 0 M225 119 q5 -6 10 0" fill="none" stroke={ink} strokeWidth="2.6" strokeLinecap="round" />
+      <circle cx="205" cy="131" r="4.5" fill="#E76F51" opacity="0.35" />
+      <circle cx="237" cy="131" r="4.5" fill="#E76F51" opacity="0.35" />
+      <path d="M217 126 h8 l-4 4 z" fill="#E76F51" />
+      <path d="M221 130 q-3 4 -7 2 M221 130 q3 4 7 2" fill="none" stroke={ink} strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M196 127 h-12 M197 132 l-11 3 M246 127 h12 M245 132 l11 3" stroke={ink} strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
   );
 }
 
