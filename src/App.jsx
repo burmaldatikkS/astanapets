@@ -660,6 +660,25 @@ function formatAge(months) {
   return rest ? `${y} ${rest} мес.` : y;
 }
 
+/**
+ * Умное кадрирование для обложки карточки (формат 4:3).
+ * Cloudinary (обычно res.cloudinary.com/<облако>/image/upload/...): если после /upload/ ещё нет
+ * трансформаций, вставляем c_fill,g_auto,ar_4:3,q_auto,f_auto — облако само находит морду
+ * животного и кадрирует кадр. Остальные ссылки возвращаются без изменений.
+ */
+const CLOUDINARY_SMART_CROP = 'c_fill,g_auto,ar_4:3,q_auto,f_auto';
+
+function getSmartPhotoUrl(url) {
+  const u = String(url ?? '');
+  if (!/^https?:\/\/([\w-]+\.)*cloudinary\.com\//i.test(u) || !u.includes('/upload/')) return u;
+  const [before, after] = u.split(/\/upload\/(.*)/s);
+  const firstSegment = (after || '').split('/')[0];
+  // Уже есть трансформации (c_..., w_..., g_..., f_... и т. п.) — ничего не трогаем
+  const hasTransforms = /^[a-z]{1,3}_[^/.]*$/i.test(firstSegment); // без точки — значит, это не имя файла вроде my_dog.jpg
+  if (hasTransforms) return u;
+  return `${before}/upload/${CLOUDINARY_SMART_CROP}/${after}`;
+}
+
 const SEX_LABEL = { male: 'Мальчик', female: 'Девочка' };
 const SIZE_LABEL = { small: 'Маленький', medium: 'Средний', large: 'Крупный' };
 const splitTags = (s) => (s ? String(s).split('|').map((t) => t.trim()).filter(Boolean) : []);
@@ -1016,7 +1035,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .ap-neg-soft { background-color: rgba(249, 115, 22, 0.15); }  /* orange-500 / 15% */
 .ap-badge-verified { background-color: #D1FAE5; color: #065F46; border-color: #A7F3D0; }   /* emerald-100 / 800 / 200 */
 .ap-badge-shelter { background-color: #F3F1ED; color: #27272A; border-color: #E4E4E7; }
-.ap-chip-badge { background-color: rgba(253, 252, 251, 0.95); color: #18181B; border-color: #E4E4E7; box-shadow: 0 1px 2px rgba(24, 24, 27, 0.08); }
+.ap-focus-face { object-position: 50% 22%; }  /* держим верх кадра с головой животного */
 .ap-photo-count { background-color: rgba(24, 24, 27, 0.6); color: #FDFCFB; }
 .ap-thumb-active { box-shadow: 0 0 0 2px #FDFCFB, 0 0 0 4px #606C38; opacity: 1; }
 .ap-photo-fade {
@@ -1129,7 +1148,6 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .ap-dark .ap-neg-soft { background-color: rgba(249, 115, 22, 0.18); }
 .ap-dark .ap-badge-verified { background-color: rgba(2, 44, 34, 0.8); color: #6EE7B7; border-color: rgba(6, 95, 70, 0.6); }
 .ap-dark .ap-badge-shelter { background-color: #2B2926; color: #E5E0D8; border-color: #3E3B36; }
-.ap-dark .ap-chip-badge { background-color: rgba(31, 30, 27, 0.95); color: #F5F3EF; border-color: #3E3B36; box-shadow: 0 4px 10px rgba(12, 11, 10, 0.35); }
 .ap-dark .ap-thumb-active { box-shadow: 0 0 0 2px #1A1917, 0 0 0 4px #8A9A52; }
 
 /* Стандартные классы Tailwind, которые встречаются в разметке */
@@ -1934,9 +1952,17 @@ function Filters({ filters, setFilter, reset, resultsCount }) {
   );
 }
 
-// Два бейджа рядом: «Проверен» и «из: [Приют]»
-function ShelterBadges({ pet, className = '' }) {
-  if (!pet.shelter_verified && !pet.shelter_name) return null;
+// «Я Живой» → Приют «Я Живой» (не дублируем слово и кавычки, если они уже есть)
+function shelterLabel(name) {
+  const n = cleanText(name);
+  if (/^приют/i.test(n)) return n;
+  return /^[«"]/.test(n) ? `Приют ${n}` : `Приют «${n}»`;
+}
+
+// Бейджи в шапке окна питомца: «Проверен», «из: [Приют]» и (по желанию) статус чипирования
+function ShelterBadges({ pet, withChip = false, className = '' }) {
+  const chipped = Boolean(pet.chip_number) || pet.is_registered;
+  if (!pet.shelter_verified && !pet.shelter_name && !withChip) return null;
   return (
     <div className={`flex flex-wrap items-center gap-2 ${className}`}>
       {pet.shelter_verified && (
@@ -1951,31 +1977,45 @@ function ShelterBadges({ pet, className = '' }) {
           <span className="truncate">из: {pet.shelter_name}</span>
         </span>
       )}
+      {withChip && (
+        <span
+          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold ${
+            chipped ? 'ap-badge-verified' : 'ap-badge-shelter'
+          }`}
+        >
+          <Cpu className="h-3.5 w-3.5 shrink-0" />
+          {chipped ? 'Чипирован' : 'Чипирование при передаче'}
+        </span>
+      )}
     </div>
   );
 }
 
 function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
   const tags = sortTagsByCategory(splitTags(pet.character_tags)).slice(0, 4);
+  // Обложка 4:3 с умным кадрированием (для Cloudinary) и запасными фото
+  const coverSrc = getSmartPhotoUrl(pet.photo_url);
+  const coverFallbacks = useMemo(() => (pet.photos || []).map(getSmartPhotoUrl), [pet.photos]);
 
   return (
     <article className="ap-card ap-card-hover group flex flex-col overflow-hidden rounded-3xl border ap-line transition-all duration-300 hover:-translate-y-1">
       <div className="ap-photo relative w-full overflow-hidden ap-sand-deep">
         <button type="button" onClick={() => onOpen(pet)} aria-label={`Открыть карточку: ${pet.name}`} className="absolute inset-0 block h-full w-full">
           <PhotoImg
-            src={pet.photo_url}
-            fallbacks={pet.photos}
+            src={coverSrc}
+            fallbacks={coverFallbacks}
             alt={`${pet.name} — ${pet.species === 'dog' ? 'собака' : 'кошка'} из приюта`}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className="ap-focus-face h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
         </button>
         <div className="ap-photo-fade pointer-events-none absolute inset-x-0 top-0 h-2/3" />
         <div className="pointer-events-none absolute left-3 right-16 top-3 flex flex-col items-start gap-1.5">
-          <ShelterBadges pet={pet} className="max-w-full" />
-          <span className="ap-chip-badge inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold">
-            <Cpu className={`h-3.5 w-3.5 shrink-0 ${pet.chip_number ? 'text-emerald-600' : 'ap-text-accent'}`} />
-            {pet.chip_number ? `Чип №${pet.chip_number}` : 'Чипирование при передаче'}
-          </span>
+          {pet.shelter_verified && (
+            <span className="ap-badge-verified inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold">
+              <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+              Проверен
+            </span>
+          )}
         </div>
         <FavoriteButton active={isFavorite} onToggle={() => onToggleFavorite(pet)} className="absolute right-3 top-3" />
         {pet.photos && pet.photos.length > 1 && (
@@ -1992,6 +2032,12 @@ function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
           <p className="mt-0.5 text-sm font-semibold ap-text-soft">
             {SEX_LABEL[pet.sex]} · {formatAge(pet.age_months)} · {SIZE_LABEL[pet.size]}
           </p>
+          {pet.shelter_name && (
+            <p className="mt-1.5 flex items-center gap-1.5 text-sm font-semibold text-zinc-600">
+              <Home className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 truncate">{shelterLabel(pet.shelter_name)}</span>
+            </p>
+          )}
         </div>
 
         {tags.length > 0 && (
@@ -2224,7 +2270,7 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
   return (
     <Modal open={!!pet} onClose={onClose} labelledBy="pet-modal-title">
       <div className="relative flex min-h-16 items-center px-4 pr-28 pt-3 sm:px-6">
-        <ShelterBadges pet={pet} />
+        <ShelterBadges pet={pet} withChip />
         <FavoriteButton active={isFavorite} onToggle={() => onToggleFavorite(pet)} className="absolute right-16 top-3" />
       </div>
 
