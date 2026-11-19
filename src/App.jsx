@@ -1578,6 +1578,7 @@ function SideDrawer({ open, onClose, theme, onThemeChange }) {
               {[
                 { id: 'catalog', label: 'Каталог питомцев', icon: PawPrint },
                 { id: 'help', label: 'Помочь приютам', icon: Heart },
+                { id: 'faq', label: 'Частые вопросы', icon: HelpCircle },
               ].map((link) => {
                 const Icon = link.icon;
                 return (
@@ -2735,6 +2736,106 @@ function HelpIllustration({ className = '' }) {
   );
 }
 
+// Частые вопросы: тексты можно править прямо здесь
+const FAQ_ITEMS = [
+  {
+    q: 'Сколько стоит забрать питомца?',
+    a: 'AstanaPets не берёт никаких денег — ни за просмотр анкет, ни за контакты. Условия передачи (договор, расходы на прививки или стерилизацию) у каждого приюта свои: уточните их у куратора до встречи.',
+  },
+  {
+    q: 'Как забрать питомца?',
+    a: 'Откройте анкету и нажмите «Показать контакты куратора» — можно сразу написать в WhatsApp. Дальше договоритесь о знакомстве в приюте, а если всё сложится — оформите передачу и регистрацию чипа на себя.',
+  },
+  {
+    q: 'Зачем чип и регистрация?',
+    a: 'По правилам ответственного обращения с животными в РК питомец должен быть идентифицирован (чип) и зарегистрирован на владельца. Если питомец ещё не чипирован, это делают при передаче — в анкете так и отмечено.',
+  },
+  {
+    q: 'Куда идут пожертвования?',
+    a: 'Напрямую приюту — через Kaspi по ссылке или номеру куратора. AstanaPets не принимает деньги и не видит ваших платежей. На что тратятся средства, написано в карточке приюта, а отчёты приюты публикуют в своём Instagram. Перед переводом сверьте имя получателя.',
+  },
+  {
+    q: 'Что значит «Проверен»?',
+    a: 'Эту отметку получают приюты, с которыми мы связались лично и сверили контакты кураторов и реквизиты для пожертвований.',
+  },
+  {
+    q: 'Не готов забрать, но хочу помочь. Что можно сделать?',
+    a: 'Переведите любую сумму в разделе «Помочь приютам» — даже 1 000 ₸ помогает. Ещё можно рассказать о питомце друзьям или спросить куратора о волонтёрстве и передержке.',
+  },
+  {
+    q: 'Питомец уже нашёл дом, а анкета ещё на сайте?',
+    a: 'Каталог обновляется, как только приют отмечает изменения в своей таблице. Если анкета устарела, куратор подскажет — или напишите автору проекта в Telegram.',
+  },
+  {
+    q: 'Я из приюта. Как добавить наших животных?',
+    a: 'Напишите автору проекта в Telegram — расскажем, как подключиться. Это бесплатно.',
+  },
+];
+
+function FaqItem({ item, open, onToggle, id }) {
+  return (
+    <div className="ap-card overflow-hidden rounded-2xl border">
+      <h3>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          aria-controls={id}
+          className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left text-base font-bold ap-text-main"
+        >
+          {item.q}
+          <ChevronDown className={`h-5 w-5 shrink-0 ap-text-faint transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
+        </button>
+      </h3>
+      <div id={id} className={`ap-collapse ${open ? 'is-open' : ''}`} aria-hidden={!open}>
+        <div>
+          <p className="px-5 pb-5 text-sm font-medium leading-relaxed ap-text-muted">{item.a}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FaqSection() {
+  const [openIndex, setOpenIndex] = useState(0);
+  return (
+    <section id="faq" className="ap-cream-block scroll-mt-20 border-t ap-line">
+      <div className="mx-auto max-w-3xl px-4 py-14">
+        <span className="inline-flex items-center gap-1.5 rounded-full ap-sand-deep px-3 py-1 text-xs font-bold ap-text-strong">
+          <HelpCircle className="h-3.5 w-3.5" />
+          FAQ
+        </span>
+        <h2 className="mt-3 text-3xl font-bold tracking-tight ap-text-main sm:text-4xl">Частые вопросы</h2>
+        <div className="mt-8 space-y-3">
+          {FAQ_ITEMS.map((item, i) => (
+            <FaqItem
+              key={item.q}
+              id={`faq-${i}`}
+              item={item}
+              open={openIndex === i}
+              onToggle={() => {
+                setOpenIndex(openIndex === i ? -1 : i);
+                if (openIndex !== i) trackEvent('faq_opened', { question: item.q });
+              }}
+            />
+          ))}
+        </div>
+        <div className="mt-6 flex flex-col items-start gap-3 rounded-2xl border ap-line ap-paper p-5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-semibold ap-text-strong">Не нашли ответ? Напишите автору проекта.</p>
+          <button
+            type="button"
+            onClick={openAuthorTelegram}
+            className="inline-flex shrink-0 items-center gap-2 rounded-2xl ap-btn-telegram px-5 py-3 text-sm font-bold transition-all duration-300 active:scale-95"
+          >
+            <Send className="h-4 w-4" />
+            Написать в Telegram
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Footer() {
   return (
     <footer className="ap-footer">
@@ -3018,6 +3119,7 @@ export default function App() {
         </section>
 
         <SheltersSection shelters={shelters} onDonate={openDonate} />
+        <FaqSection />
       </main>
       <Footer />
 
