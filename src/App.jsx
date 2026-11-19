@@ -2796,47 +2796,36 @@ function FaqItem({ item, open, onToggle, id }) {
   );
 }
 
-// Плашка «О проекте» перед FAQ (формулировки — о текущем положении дел, без обещаний «навсегда»)
-function AboutProject() {
-  return (
-    <div className="ap-card rounded-3xl border p-6 sm:p-8">
-      <span className="inline-flex items-center gap-1.5 rounded-full ap-sand-deep px-3 py-1 text-xs font-bold ap-text-strong">
-        <Sparkles className="h-3.5 w-3.5" />
-        О проекте
-      </span>
-      <h2 className="mt-3 text-2xl font-bold tracking-tight ap-text-main sm:text-3xl">Сделано на чистом энтузиазме</h2>
-      <p className="mt-3 text-base font-medium leading-relaxed ap-text-muted">
-        AstanaPets — информационный сервис: мы собираем анкеты питомцев из проверенных приютов Астаны в одном месте, чтобы им было проще найти дом.
-        Мы не берём денег ни с тех, кто ищет питомца, ни с приютов и не принимаем пожертвования — переводы идут напрямую приютам. Мы не приют и
-        не посредник, поэтому обо всём, что касается передачи, вы договариваетесь с куратором.
-      </p>
-    </div>
-  );
-}
-
 function FaqSection() {
   const [openIndex, setOpenIndex] = useState(0);
   return (
     <section id="faq" className="ap-cream-block scroll-mt-20 border-t ap-line">
-      <div className="mx-auto max-w-3xl px-4 py-14">
-        <AboutProject />
-        <span className="mt-14 inline-flex items-center gap-1.5 rounded-full ap-sand-deep px-3 py-1 text-xs font-bold ap-text-strong">
+      <div className="mx-auto max-w-6xl px-4 py-14">
+        <span className="inline-flex items-center gap-1.5 rounded-full ap-sand-deep px-3 py-1 text-xs font-bold ap-text-strong">
           <HelpCircle className="h-3.5 w-3.5" />
           FAQ
         </span>
         <h2 className="mt-3 text-3xl font-bold tracking-tight ap-text-main sm:text-4xl">Частые вопросы</h2>
-        <div className="mt-8 space-y-3">
-          {FAQ_ITEMS.map((item, i) => (
-            <FaqItem
-              key={item.q}
-              id={`faq-${i}`}
-              item={item}
-              open={openIndex === i}
-              onToggle={() => {
-                setOpenIndex(openIndex === i ? -1 : i);
-                if (openIndex !== i) trackEvent('faq_opened', { question: item.q });
-              }}
-            />
+        {/* Два независимых столбца: раскрытый вопрос не растягивает соседний */}
+        <div className="mt-8 grid gap-3 md:grid-cols-2 md:gap-4">
+          {[FAQ_ITEMS.slice(0, Math.ceil(FAQ_ITEMS.length / 2)), FAQ_ITEMS.slice(Math.ceil(FAQ_ITEMS.length / 2))].map((column, c) => (
+            <div key={c} className="flex flex-col gap-3 md:gap-4">
+              {column.map((item) => {
+                const i = FAQ_ITEMS.indexOf(item);
+                return (
+                  <FaqItem
+                    key={item.q}
+                    id={`faq-${i}`}
+                    item={item}
+                    open={openIndex === i}
+                    onToggle={() => {
+                      setOpenIndex(openIndex === i ? -1 : i);
+                      if (openIndex !== i) trackEvent('faq_opened', { question: item.q });
+                    }}
+                  />
+                );
+              })}
+            </div>
           ))}
         </div>
         <div className="mt-6 flex flex-col items-start gap-3 rounded-2xl border ap-line ap-paper p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -2863,10 +2852,15 @@ function Footer() {
           <AppLogo className="h-9 w-9" />
           <span className="text-lg font-bold ap-text-main">Лапки Астаны · AstanaPets</span>
         </div>
-        <p className="max-w-3xl text-sm font-medium leading-relaxed ap-text-muted">
-          Сервис носит информационный характер и помогает приютам Астаны находить дом для животных. Площадка не принимает денежные средства и не
-          является стороной передачи животного — все переводы и договорённости происходят напрямую с проверенными приютами и кураторами.
-        </p>
+        {/* О проекте (формулировки — о текущем положении дел, без обещаний «навсегда») */}
+        <div className="max-w-3xl">
+          <p className="text-base font-bold ap-text-main">Сделано на чистом энтузиазме</p>
+          <p className="mt-1.5 text-sm font-medium leading-relaxed ap-text-muted">
+            AstanaPets — информационный сервис: мы собираем анкеты питомцев из проверенных приютов Астаны в одном месте, чтобы им было проще найти
+            дом. Мы не берём денег ни с тех, кто ищет питомца, ни с приютов и не принимаем пожертвования — переводы идут напрямую приютам. Мы не приют
+            и не посредник, поэтому обо всём, что касается передачи, вы договариваетесь с куратором.
+          </p>
+        </div>
         <p className="text-xs font-semibold ap-text-faint">© {new Date().getFullYear()} AstanaPets · Пилотный проект · Астана, Казахстан</p>
       </div>
     </footer>
