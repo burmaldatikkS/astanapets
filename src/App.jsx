@@ -2570,7 +2570,7 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
   );
 }
 
-function DonateModal({ target, onClose, notify }) {
+function DonateModal({ target, onClose, notify, onPaymentIntent }) {
   if (!target) return null;
   const { shelter, pet } = target;
   const base = { shelter: shelter.shelter_name, pet_id: pet?.id || null, pet_name: pet?.name || null };
@@ -2579,6 +2579,7 @@ function DonateModal({ target, onClose, notify }) {
     const ok = await copyToClipboard(shelter.kaspi_phone);
     notify(ok ? 'Номер Kaspi скопирован' : 'Не удалось скопировать');
     trackEvent('kaspi_phone_copied', base);
+    onPaymentIntent?.(target);
   };
 
   return (
@@ -2618,7 +2619,10 @@ function DonateModal({ target, onClose, notify }) {
           href={shelter.kaspi_link}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={() => trackEvent('kaspi_link_clicked', base)}
+          onClick={() => {
+            trackEvent('kaspi_link_clicked', base);
+            onPaymentIntent?.(target);
+          }}
           className="inline-flex w-full items-center justify-center gap-2 rounded-2xl ap-btn-kaspi px-5 py-4 text-base font-bold transition-all duration-300 active:scale-95"
         >
           <BrandIcon src={KASPI_ICON_SRC} fallback={Wallet} className="h-6 w-6" />
@@ -2646,6 +2650,131 @@ function DonateModal({ target, onClose, notify }) {
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           Деньги уходят приюту напрямую, без комиссии. Перед оплатой сверьте имя получателя в Kaspi.
         </p>
+      </div>
+    </Modal>
+  );
+}
+
+// Радостный котёнок для окна благодарности
+function HappyKitten({ className = '' }) {
+  const ink = '#283618';
+  return (
+    <svg viewBox="0 0 220 190" className={className} aria-hidden="true" focusable="false">
+      <circle cx="110" cy="100" r="82" fill="#F0C48F" opacity="0.22" />
+      {/* сердечки и искорки */}
+      <path className="ap-float-slow" d="M34 52 c-6 -5 -11 -10 -7 -14 c3 -3 6 -1 7 1 c1 -2 4 -4 7 -1 c4 4 -1 9 -7 14 z" fill="#E76F51" />
+      <path className="ap-float" d="M186 40 c-7 -6 -13 -12 -8 -17 c3 -3 7 -1 8 2 c1 -3 5 -5 8 -2 c5 5 -1 11 -8 17 z" fill="#E76F51" />
+      <path className="ap-float-late" d="M192 112 c-4 -4 -8 -7 -5 -10 c2 -2 4 -1 5 1 c1 -2 3 -3 5 -1 c3 3 -1 6 -5 10 z" fill="#DDA15E" />
+      <path d="M24 108 l3 -8 l3 8 l8 3 l-8 3 l-3 8 l-3 -8 l-8 -3 z" fill="#F0C48F" />
+      <path d="M160 18 l2 -6 l2 6 l6 2 l-6 2 l-2 6 l-2 -6 l-6 -2 z" fill="#F0C48F" />
+
+      {/* тельце и поднятые от радости лапки */}
+      <ellipse cx="110" cy="178" rx="48" ry="26" fill="#F2B66D" />
+      <ellipse cx="110" cy="182" rx="26" ry="16" fill="#FCE3C0" />
+      <path d="M66 150 C 52 128, 46 104, 50 86" fill="none" stroke="#F2B66D" strokeWidth="18" strokeLinecap="round" />
+      <path d="M154 150 C 168 128, 174 104, 170 86" fill="none" stroke="#F2B66D" strokeWidth="18" strokeLinecap="round" />
+      <circle cx="50" cy="82" r="12" fill="#FCE3C0" />
+      <circle cx="170" cy="82" r="12" fill="#FCE3C0" />
+      <circle cx="50" cy="85" r="4" fill="#F4A28C" />
+      <circle cx="170" cy="85" r="4" fill="#F4A28C" />
+
+      {/* ушки */}
+      <path d="M66 82 L 68 30 L 104 58 Z" fill="#F2B66D" />
+      <path d="M154 82 L 152 30 L 116 58 Z" fill="#F2B66D" />
+      <path d="M73 70 L 74 42 L 95 58 Z" fill="#F4A28C" />
+      <path d="M147 70 L 146 42 L 125 58 Z" fill="#F4A28C" />
+
+      {/* голова */}
+      <ellipse cx="110" cy="104" rx="56" ry="50" fill="#F2B66D" />
+      <path d="M100 58 q4 10 0 18 M110 56 q4 12 0 22 M120 58 q4 10 0 18" fill="none" stroke="#DDA15E" strokeWidth="4" strokeLinecap="round" />
+      <ellipse cx="110" cy="124" rx="30" ry="22" fill="#FCE3C0" />
+
+      {/* большие блестящие глазки */}
+      <ellipse cx="86" cy="102" rx="13" ry="15" fill={ink} />
+      <ellipse cx="134" cy="102" rx="13" ry="15" fill={ink} />
+      <circle cx="91" cy="96" r="5" fill="#fff" />
+      <circle cx="139" cy="96" r="5" fill="#fff" />
+      <circle cx="82" cy="108" r="2.5" fill="#fff" />
+      <circle cx="130" cy="108" r="2.5" fill="#fff" />
+
+      {/* щёчки, носик, широкая улыбка */}
+      <ellipse cx="68" cy="122" rx="9" ry="6" fill="#F4A28C" opacity="0.75" />
+      <ellipse cx="152" cy="122" rx="9" ry="6" fill="#F4A28C" opacity="0.75" />
+      <path d="M104 116 h12 l-6 6 z" fill="#E76F51" />
+      <path d="M98 126 Q 110 146 122 126 Z" fill="#8A3B2A" />
+      <ellipse cx="110" cy="137" rx="6" ry="4" fill="#F4A28C" />
+      <path d="M62 128 h-16 M63 134 l-15 4 M158 128 h16 M157 134 l15 4" stroke={ink} strokeOpacity="0.35" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Благодарность после возвращения из Kaspi. Оплату мы не видим, поэтому текст не утверждает, что она прошла.
+function ThanksModal({ target, onClose, notify }) {
+  if (!target) return null;
+  const { shelter, pet } = target;
+
+  const share = async () => {
+    const url = window.location.origin;
+    const text = pet
+      ? `${pet.name} ищет дом — посмотрите на AstanaPets`
+      : 'Питомцы из проверенных приютов Астаны — AstanaPets';
+    trackEvent('thanks_share_clicked', { shelter: shelter.shelter_name });
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'AstanaPets', text, url });
+        return;
+      }
+    } catch {
+      return; // человек закрыл окно «Поделиться»
+    }
+    const ok = await copyToClipboard(`${text}: ${url}`);
+    notify(ok ? 'Ссылка скопирована — отправьте её друзьям' : 'Не удалось скопировать ссылку');
+  };
+
+  return (
+    <Modal open={!!target} onClose={onClose} labelledBy="thanks-modal-title">
+      <div className="space-y-5 p-6 pb-8 text-center sm:p-8">
+        <HappyKitten className="mx-auto h-44 w-auto" />
+        <div>
+          <h2 id="thanks-modal-title" className="text-2xl font-bold tracking-tight ap-text-main">
+            Спасибо, что помогаете!
+          </h2>
+          <p className="mx-auto mt-2 max-w-sm text-base font-medium leading-relaxed ap-text-muted">
+            Каждый перевод — это корм, лечение и ещё один шанс найти дом. И спасибо, что пользуетесь AstanaPets: мы делаем его как раз для таких
+            людей, как вы.
+          </p>
+        </div>
+        {shelter.reports_url && (
+          <p className="text-sm font-medium ap-text-soft">
+            На что ушли деньги, {shelterLabel(shelter.shelter_name).replace(/^Приют/, 'приют')} показывает{' '}
+            <a
+              href={shelter.reports_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-bold ap-text-strong underline underline-offset-4 ap-link"
+            >
+              в своих отчётах
+            </a>
+            .
+          </p>
+        )}
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+          <button
+            type="button"
+            onClick={share}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl ap-btn-accent px-5 py-3.5 text-base font-bold transition-all duration-300 active:scale-95"
+          >
+            <Send className="h-5 w-5" />
+            Рассказать друзьям
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center justify-center rounded-2xl border-2 ap-chip-idle px-5 py-3.5 text-base font-bold transition-all duration-300"
+          >
+            Закрыть
+          </button>
+        </div>
       </div>
     </Modal>
   );
@@ -2952,6 +3081,36 @@ export default function App() {
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [theme, setTheme] = useState(loadTheme);
+  const [thanksTarget, setThanksTarget] = useState(null);
+  const paymentIntentRef = useRef(null);
+
+  // Человек нажал «Оплатить через Kaspi Pay» или скопировал номер → ушёл в Kaspi → вернулся на вкладку:
+  // показываем благодарность (не чаще раза за визит). Оплату мы не видим, это только мягкое «спасибо».
+  useEffect(() => {
+    const THANKS_KEY = 'astanapets:thanks-shown';
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || !paymentIntentRef.current) return;
+      let shown = false;
+      try {
+        shown = sessionStorage.getItem(THANKS_KEY) === '1';
+      } catch {
+        shown = false;
+      }
+      const target = paymentIntentRef.current;
+      paymentIntentRef.current = null;
+      if (shown) return;
+      try {
+        sessionStorage.setItem(THANKS_KEY, '1');
+      } catch {
+        /* без sessionStorage просто покажем ещё раз в следующий визит */
+      }
+      setDonateTarget(null);
+      setThanksTarget(target);
+      trackEvent('thanks_shown', { shelter: target.shelter?.shelter_name });
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   // Тема: сохраняем выбор и красим фон страницы под ней (видно при «перетягивании» экрана)
   useEffect(() => {
@@ -3212,7 +3371,15 @@ export default function App() {
         isFavorite={activePet ? favorites.includes(activePet.id) : false}
         onToggleFavorite={toggleFavorite}
       />
-      <DonateModal target={donateTarget} onClose={() => setDonateTarget(null)} notify={setToast} />
+      <DonateModal
+        target={donateTarget}
+        onClose={() => setDonateTarget(null)}
+        notify={setToast}
+        onPaymentIntent={(t) => {
+          paymentIntentRef.current = t;
+        }}
+      />
+      <ThanksModal target={thanksTarget} onClose={() => setThanksTarget(null)} notify={setToast} />
       <SideDrawer open={menuOpen} onClose={closeMenu} theme={theme} onThemeChange={changeTheme} />
       <Toast message={toast} />
     </div>
