@@ -7,7 +7,6 @@ import {
   X,
   Cpu,
   Check,
-  Minus,
   Phone,
   Copy,
   MessageCircle,
@@ -727,10 +726,11 @@ const isFiltersDirty = (f) => Object.keys(DEFAULT_FILTERS).some((k) => f[k] !== 
  * Палитра Coolors из 5 цветов + шрифт Plus Jakarta Sans / Rubik.
  * Все фирменные цвета заданы семантическими CSS-классами с префиксом .ap-
  * (см. GLOBAL_CSS), без произвольных классов Tailwind в квадратных скобках.
- *   #FEFAE0 — сливочный крем (шапка, первый экран), карточки #FFFDF5
+ *   #F3F1ED — шапка и первый экран, #EAE6DF — каталог, карточки и окна #FDFCFB
+ *   Текст: zinc-900 #18181B (заголовки, значения), zinc-700 #3F3F46 (описания)
  *   #606C38 — оливково-мшистый (главные действия, активные фильтры)
  *   #283618 — глубокий хвойный (текст, блок «Помочь приютам», карточки #344620)
- *   #DDA15E — медовый песок (сборы, «Ищет семью», проверка; фон каталога #F4EBD9)
+ *   #DDA15E — медовый песок (сборы, «Ищет семью», проверка)
  *   #BC6C25 — тёплая карамель («Помочь приюту», сердечки, счётчики фильтров)
  * ===================================================================== */
 
@@ -743,7 +743,7 @@ const GLOBAL_CSS = `
 .ap-root, .ap-root button, .ap-root input, .ap-root a, .ap-root label {
   font-family: 'Plus Jakarta Sans', 'Rubik', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
-.ap-root { background-color: #FEFAE0; color: #283618; -webkit-font-smoothing: antialiased; }
+.ap-root { background-color: #F3F1ED; color: #18181B; -webkit-font-smoothing: antialiased; }
 /* Воздушный основной текст; :where() не перебивает явные классы leading-* */
 :where(.ap-root) p, :where(.ap-root) li, :where(.ap-root) blockquote { line-height: 1.65; }
 
@@ -758,70 +758,68 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 }
 
 /* ---------- Цветовые блоки секций ---------- */
-.ap-cream-block { background-color: #FEFAE0; }        /* шапка и первый экран — сливочный крем */
-.ap-catalog-block { background-color: #F4EBD9; }      /* каталог — разбавленный медовый песок */
-.ap-forest-block { background-color: #283618; color: #FEFAE0; }  /* «Помочь приютам» — глубокий хвойный */
-.ap-footer { background-color: #FEFAE0; }
+.ap-cream-block { background-color: #F3F1ED; }        /* шапка и первый экран — светлый тёпло-серый */
+.ap-catalog-block { background-color: #EAE6DF; }      /* каталог — нейтральный песочный без желтизны */
+.ap-forest-block { background-color: #283618; color: #FDFCFB; }  /* «Помочь приютам» — глубокий хвойный */
+.ap-footer { background-color: #F3F1ED; }
 
 /* ---------- Текст ---------- */
-.ap-text-main { color: #283618; }          /* глубокий хвойный */
-.ap-text-strong { color: #3A4527; }
-.ap-text-muted { color: #565E42; }
-.ap-text-soft { color: #737860; }
-.ap-text-faint { color: #9A9C84; }
-.ap-ivory-text { color: #FEFAE0; }
-.ap-fill-ivory { fill: #FEFAE0; }
+.ap-text-main { color: #18181B; }          /* zinc-900: заголовки и значения */
+.ap-text-strong { color: #27272A; }        /* zinc-800 */
+.ap-text-muted { color: #3F3F46; }         /* zinc-700: описания */
+.ap-text-soft { color: #52525B; }          /* zinc-600 */
+.ap-text-faint { color: #71717A; }         /* zinc-500 */
+.ap-ivory-text { color: #FDFCFB; }
+.ap-fill-ivory { fill: #FDFCFB; }
 .ap-text-accent { color: #A45B1C; }        /* карамель, чуть темнее для читаемости текста */
 .ap-text-sage-deep { color: #606C38; }     /* оливково-мшистый */
 .ap-text-sage { color: #DDA15E; }
-.ap-ok { color: #606C38; }
-.ap-no { color: #BC6C25; }
-.ap-link:hover { color: #283618; }
+.ap-link:hover { color: #18181B; }
 .ap-prose { line-height: 1.8; }
 
 /* Текст на хвойном блоке */
-.ap-on-dark { color: #FEFAE0; }
+.ap-on-dark { color: #FDFCFB; }
 .ap-on-dark-muted { color: #DCDDC3; }
 .ap-on-dark-soft { color: #B9BC9C; }
 
 /* ---------- Поверхности и линии ---------- */
-.ap-surface { background-color: #FBF5E6; }     /* подложка внутри карточки */
-.ap-sand { background-color: #F8F0DE; }
-.ap-sand-deep { background-color: #F1E5CC; }
-.ap-paper { background-color: #FFFDF5; }
-.ap-modal-bg { background-color: #FFFDF5; }
-.ap-header-glass { background-color: rgba(254, 250, 224, 0.92); }
-.ap-glass { background-color: rgba(255, 253, 245, 0.94); }
+.ap-surface { background-color: #F5F3EF; }     /* подложка внутри карточки */
+.ap-sand { background-color: #F1EEE9; }
+.ap-sand-deep { background-color: #E5E0D7; }
+.ap-paper { background-color: #FDFCFB; }
+.ap-modal-bg { background-color: #FDFCFB; }
+.ap-header-glass { background-color: rgba(243, 241, 237, 0.92); }
+.ap-glass { background-color: rgba(253, 252, 251, 0.94); }
 .ap-overlay { background-color: rgba(40, 54, 24, 0.45); }
-/* Деликатные полупрозрачные медовые границы */
-.ap-line { border-color: rgba(221, 161, 94, 0.35); }
-.ap-line-soft { border-color: rgba(221, 161, 94, 0.25); }
-.ap-divide > * { border-color: rgba(221, 161, 94, 0.25); }
+/* Нейтральные тёплые границы без желтизны */
+.ap-line { border-color: #DFDAD2; }
+.ap-line-soft { border-color: #E6E2DB; }
+.ap-divide > * { border-color: #E9E5DF; }
 
 .ap-shadow-soft { box-shadow: 0 2px 10px rgba(40, 54, 24, 0.08); }
 .ap-card {
-  background-color: #FFFDF5;
-  border: 1px solid rgba(221, 161, 94, 0.35);
+  background-color: #FDFCFB;
+  border: 1px solid #DFDAD2;
   box-shadow: 0 4px 20px rgba(40, 54, 24, 0.05);
 }
 .ap-card-hover:hover {
-  border-color: rgba(221, 161, 94, 0.6);
+  border-color: #C9C1B4;
   box-shadow: 0 10px 30px rgba(40, 54, 24, 0.09);
 }
 
 /* ---------- Главный акцент: оливково-мшистый #606C38 ---------- */
-.ap-btn-accent { background-color: #606C38; color: #FEFAE0; box-shadow: 0 4px 14px rgba(96, 108, 56, 0.2); }
+.ap-btn-accent { background-color: #606C38; color: #FDFCFB; box-shadow: 0 4px 14px rgba(96, 108, 56, 0.2); }
 .ap-btn-accent:hover { background-color: #4F5A2D; }
 .ap-btn-outline-accent { background-color: #EEF0DC; color: #4F5A2D; border-color: #606C38; }
-.ap-chip-idle { background-color: #FFFDF5; color: #565E42; border-color: rgba(221, 161, 94, 0.4); }
-.ap-chip-idle:hover { background-color: #FBF3E1; border-color: #DDA15E; color: #283618; }
-.ap-chip-active { background-color: #606C38; border-color: #606C38; color: #FEFAE0; box-shadow: 0 4px 14px rgba(96, 108, 56, 0.2); }
-.ap-tab-idle { color: #565E42; }
-.ap-tab-idle:hover { background-color: #FFFDF5; color: #283618; }
+.ap-chip-idle { background-color: #FDFCFB; color: #3F3F46; border-color: #D9D3C9; }
+.ap-chip-idle:hover { background-color: #F3F1ED; border-color: #A8A090; color: #18181B; }
+.ap-chip-active { background-color: #606C38; border-color: #606C38; color: #FDFCFB; box-shadow: 0 4px 14px rgba(96, 108, 56, 0.2); }
+.ap-tab-idle { color: #3F3F46; }
+.ap-tab-idle:hover { background-color: #FDFCFB; color: #18181B; }
 
 /* ---------- Медовый песок #DDA15E и тёплая карамель #BC6C25 ---------- */
 .ap-badge-honey { background-color: #DDA15E; color: #283618; }   /* «Ищет семью», «Проверен» */
-.ap-btn-caramel { background-color: #BC6C25; color: #FEFAE0; box-shadow: 0 4px 14px rgba(188, 108, 37, 0.25); }
+.ap-btn-caramel { background-color: #BC6C25; color: #FDFCFB; box-shadow: 0 4px 14px rgba(188, 108, 37, 0.25); }
 .ap-btn-caramel:hover { background-color: #A45B1C; }
 .ap-btn-accent-soft { background-color: #FBF1DF; color: #9A541A; border-color: rgba(221, 161, 94, 0.5); }
 .ap-btn-accent-soft:hover { background-color: #F6E4C6; border-color: #BC6C25; }
@@ -836,22 +834,22 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .ap-sage-fill { background-color: #606C38; }
 .ap-sage-soft { background-color: #EEF0DC; }
 .ap-sage-panel { background-color: #F3F4E3; border-color: #CDD3AE; }
-.ap-toggle-idle { background-color: #FFFDF5; color: #565E42; border-color: rgba(221, 161, 94, 0.4); }
-.ap-toggle-idle:hover { background-color: #FBF3E1; border-color: #DDA15E; }
-.ap-toggle-active { background-color: #606C38; border-color: #606C38; color: #FEFAE0; box-shadow: 0 4px 14px rgba(96, 108, 56, 0.2); }
-.ap-track-off { background-color: #EADCBF; }
+.ap-toggle-idle { background-color: #FDFCFB; color: #3F3F46; border-color: #D9D3C9; }
+.ap-toggle-idle:hover { background-color: #F3F1ED; border-color: #A8A090; }
+.ap-toggle-active { background-color: #606C38; border-color: #606C38; color: #FDFCFB; box-shadow: 0 4px 14px rgba(96, 108, 56, 0.2); }
+.ap-track-off { background-color: #DDD8CF; }
 .ap-track-on { background-color: #8A9659; }
-.ap-knob { background-color: #FFFDF5; box-shadow: 0 1px 2px rgba(40, 54, 24, 0.25); }
+.ap-knob { background-color: #FDFCFB; box-shadow: 0 1px 2px rgba(40, 54, 24, 0.25); }
 
 /* ---------- Тёмные элементы, поля ввода, внешние сервисы ---------- */
-.ap-bg-graphite { background-color: #283618; color: #FEFAE0; }
-.ap-bg-graphite:hover { background-color: #344620; }
-.ap-input { background-color: #FBF6E8; border-color: rgba(221, 161, 94, 0.4); color: #283618; }
-.ap-input:focus { border-color: #606C38; background-color: #FFFDF5; box-shadow: 0 0 0 4px rgba(96, 108, 56, 0.14); }
-.ap-field { background-color: #FBF6E8; border-color: rgba(221, 161, 94, 0.4); color: #283618; }
-.ap-btn-whatsapp { background-color: #25A55F; color: #FFFDF5; }
+.ap-bg-graphite { background-color: #27272A; color: #FDFCFB; }
+.ap-bg-graphite:hover { background-color: #3F3F46; }
+.ap-input { background-color: #F7F5F1; border-color: #D9D3C9; color: #18181B; }
+.ap-input:focus { border-color: #606C38; background-color: #FDFCFB; box-shadow: 0 0 0 4px rgba(96, 108, 56, 0.14); }
+.ap-field { background-color: #F7F5F1; border-color: #D9D3C9; color: #18181B; }
+.ap-btn-whatsapp { background-color: #25A55F; color: #FDFCFB; }
 .ap-btn-whatsapp:hover { background-color: #1E8D50; }
-.ap-btn-kaspi { background-color: #E5402F; color: #FFFDF5; }
+.ap-btn-kaspi { background-color: #E5402F; color: #FDFCFB; }
 .ap-btn-kaspi:hover { background-color: #C93424; }
 
 /* ---------- Хвойная секция «Помочь приютам» ---------- */
@@ -867,8 +865,8 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 /* ---------- Фото ---------- */
 .ap-photo { aspect-ratio: 4 / 3; }
 .ap-portrait { aspect-ratio: 4 / 5; }
-.ap-photo-count { background-color: rgba(40, 54, 24, 0.6); color: #FEFAE0; }
-.ap-thumb-active { box-shadow: 0 0 0 2px #FFFDF5, 0 0 0 4px #606C38; opacity: 1; }
+.ap-photo-count { background-color: rgba(24, 24, 27, 0.6); color: #FDFCFB; }
+.ap-thumb-active { box-shadow: 0 0 0 2px #FDFCFB, 0 0 0 4px #606C38; opacity: 1; }
 .ap-photo-fade {
   background: linear-gradient(to bottom, rgba(30, 34, 20, 0.45) 0%, rgba(30, 34, 20, 0.14) 45%, rgba(30, 34, 20, 0) 75%);
 }
@@ -1619,10 +1617,10 @@ function DetailSection({ title, children }) {
   );
 }
 
+// Положительный статус — изумрудный, отрицательный — насыщенный красный
 const STATUS_ICON = {
-  yes: { Icon: Check, cls: 'ap-ok' },
-  no: { Icon: X, cls: 'ap-no' },
-  neutral: { Icon: Minus, cls: 'ap-text-faint' },
+  yes: { Icon: Check, icon: 'text-emerald-600', text: 'text-emerald-700' },
+  no: { Icon: X, icon: 'text-rose-600', text: 'text-rose-600' },
 };
 
 // Строка характеристики: иконка + подпись слева, значение (и при необходимости статус) справа
@@ -1630,18 +1628,14 @@ function DetailRow({ icon: Icon, glyph, label, value, status }) {
   const st = status ? STATUS_ICON[status] : null;
   return (
     <div className="flex items-center justify-between gap-3 py-3">
-      <span className="flex min-w-0 items-center gap-3 text-sm font-semibold ap-text-muted">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ap-sand ap-text-soft">
+      <span className="flex min-w-0 items-center gap-3 text-sm font-semibold ap-text-strong">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ap-sand ap-text-muted">
           {Icon ? <Icon className="h-4 w-4" /> : <span className="text-base font-bold leading-none">{glyph}</span>}
         </span>
         <span className="min-w-0">{label}</span>
       </span>
-      <span
-        className={`flex shrink-0 items-center gap-1.5 text-right text-sm font-bold ${
-          status === 'neutral' ? 'ap-text-soft' : 'ap-text-main'
-        }`}
-      >
-        {st && <st.Icon className={`h-4 w-4 ${st.cls}`} />}
+      <span className={`flex shrink-0 items-center gap-1.5 text-right text-sm font-semibold ${st ? st.text : 'ap-text-main'}`}>
+        {st && <st.Icon className={`h-4 w-4 ${st.icon}`} strokeWidth={2.75} />}
         {value}
       </span>
     </div>
@@ -1649,19 +1643,21 @@ function DetailRow({ icon: Icon, glyph, label, value, status }) {
 }
 
 const COMPAT_STATUS = {
-  yes: { Icon: Check, cls: 'ap-ok', text: 'Да' },
-  no: { Icon: X, cls: 'ap-no', text: 'Нет' },
-  unknown: { Icon: HelpCircle, cls: 'ap-text-faint', text: 'Неизвестно' },
+  yes: { Icon: Check, icon: 'text-emerald-600', circle: 'bg-emerald-100', label: 'text-emerald-700 font-bold', text: 'Да' },
+  no: { Icon: X, icon: 'text-rose-600', circle: 'bg-rose-100', label: 'text-rose-600 font-bold', text: 'Нет' },
+  unknown: { Icon: HelpCircle, icon: 'text-zinc-500', circle: 'bg-zinc-100', label: 'text-zinc-600 font-semibold', text: 'Неизвестно' },
 };
 
 function CompatTile({ icon: Icon, label, value }) {
   const st = COMPAT_STATUS[value] || COMPAT_STATUS.unknown;
   return (
-    <div className="relative rounded-2xl border ap-line ap-paper p-3.5 text-center">
-      <st.Icon className={`absolute right-2.5 top-2.5 h-4 w-4 ${st.cls}`} aria-hidden="true" />
-      <Icon className="mx-auto mt-1 h-7 w-7 ap-text-muted" aria-hidden="true" />
-      <p className="mt-2 text-sm font-bold ap-text-main">{label}</p>
-      <p className={`mt-0.5 text-xs font-bold ${st.cls}`}>{st.text}</p>
+    <div className="relative rounded-2xl border ap-line ap-paper px-3 pb-3.5 pt-7 text-center">
+      <span className={`absolute right-2 top-2 inline-flex rounded-full p-1 ${st.circle}`} aria-hidden="true">
+        <st.Icon className={`h-4 w-4 ${st.icon}`} strokeWidth={3} />
+      </span>
+      <Icon className="mx-auto h-8 w-8 text-zinc-700" aria-hidden="true" />
+      <p className="mt-2 text-sm font-bold text-zinc-900">{label}</p>
+      <p className={`mt-0.5 text-xs ${st.label}`}>{st.text}</p>
     </div>
   );
 }
@@ -1860,13 +1856,13 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
           <DetailRow
             icon={Home}
             label="Подходит для квартиры"
-            status={pet.apartment_friendly ? 'yes' : 'neutral'}
+            status={pet.apartment_friendly ? 'yes' : 'no'}
             value={pet.apartment_friendly ? 'Да' : 'Лучше частный дом'}
           />
           <DetailRow
             icon={Smile}
             label="Подойдёт новичку"
-            status={pet.beginner_friendly ? 'yes' : 'neutral'}
+            status={pet.beginner_friendly ? 'yes' : 'no'}
             value={pet.beginner_friendly ? 'Да' : 'Нужен опыт'}
           />
         </DetailSection>
@@ -1875,31 +1871,31 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
           <DetailRow
             icon={Scissors}
             label="Стерилизация / кастрация"
-            status={pet.is_sterilized ? 'yes' : 'neutral'}
+            status={pet.is_sterilized ? 'yes' : 'no'}
             value={pet.is_sterilized ? 'Выполнена' : 'Пока нет'}
           />
           <DetailRow
             icon={Syringe}
             label="Вакцинация"
-            status={pet.is_vaccinated ? 'yes' : 'neutral'}
+            status={pet.is_vaccinated ? 'yes' : 'no'}
             value={pet.is_vaccinated ? 'По возрасту' : 'Пока нет'}
           />
           <DetailRow
             icon={Bug}
             label="Обработка от паразитов"
-            status={pet.is_parasite_treated ? 'yes' : 'neutral'}
+            status={pet.is_parasite_treated ? 'yes' : 'no'}
             value={pet.is_parasite_treated ? 'Выполнена' : 'Пока нет'}
           />
           <DetailRow
             icon={Cpu}
             label="Чип"
-            status={pet.chip_number ? 'yes' : 'neutral'}
+            status={pet.chip_number ? 'yes' : 'no'}
             value={pet.chip_number ? `№${pet.chip_number}` : 'При передаче'}
           />
           <DetailRow
             icon={FileText}
             label="Регистрация в базе учёта"
-            status={pet.is_registered ? 'yes' : 'neutral'}
+            status={pet.is_registered ? 'yes' : 'no'}
             value={pet.is_registered ? 'Да' : 'При передаче'}
           />
           <p className="flex items-start gap-1.5 pt-3 text-xs font-medium ap-text-soft">
