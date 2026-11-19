@@ -2012,6 +2012,37 @@ function ShelterBadges({ pet, withChip = false, className = '' }) {
   );
 }
 
+// Вместо сбора (если его нет): начало истории питомца, а без истории — что уже сделано по здоровью
+function CardTeaser({ pet }) {
+  const story = cleanText(pet.description);
+  if (story) {
+    return (
+      <div className="flex gap-2.5 rounded-2xl border ap-line ap-surface p-3">
+        <Quote className="mt-0.5 h-4 w-4 shrink-0 ap-text-faint" />
+        <p className="line-clamp-3 text-sm font-medium leading-relaxed ap-text-muted">{story}</p>
+      </div>
+    );
+  }
+  const a = pet.sex === 'female' ? 'а' : '';
+  const facts = [
+    pet.is_vaccinated && { icon: Syringe, label: `Привит${a}` },
+    pet.is_sterilized && { icon: Scissors, label: pet.sex === 'female' ? 'Стерилизована' : 'Кастрирован' },
+    (pet.chip_number || pet.is_registered) && { icon: Cpu, label: `Чипирован${a}` },
+    pet.is_parasite_treated && { icon: Bug, label: 'Обработка от паразитов' },
+  ].filter(Boolean);
+  if (facts.length === 0) return null;
+  return (
+    <ul className="flex flex-wrap gap-x-4 gap-y-2 rounded-2xl border ap-line ap-surface p-3">
+      {facts.map(({ icon: Icon, label }) => (
+        <li key={label} className="flex items-center gap-1.5 text-xs font-bold ap-text-strong">
+          <Icon className="h-3.5 w-3.5 shrink-0 ap-text-sage-deep" />
+          {label}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
   const tags = sortTagsByCategory(splitTags(pet.character_tags)).slice(0, 4);
   // Обложка 4:3 с умным кадрированием (для Cloudinary) и запасными фото
@@ -2083,7 +2114,11 @@ function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
           </div>
         )}
 
-        <ProgressBar compact collected={pet.fundraising_collected_kzt} goal={pet.fundraising_goal_kzt} purpose={pet.fundraising_purpose} />
+        {pet.fundraising_goal_kzt ? (
+          <ProgressBar compact collected={pet.fundraising_collected_kzt} goal={pet.fundraising_goal_kzt} purpose={pet.fundraising_purpose} />
+        ) : (
+          <CardTeaser pet={pet} />
+        )}
 
         <div className="mt-auto flex gap-2 pt-1">
           <button
