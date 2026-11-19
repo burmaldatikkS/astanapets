@@ -1,0 +1,24 @@
+# Раз в сутки просит Vercel пересобрать сайт, чтобы снимок каталога (public/data/catalog.json)
+# был не старше суток. Нужен секрет VERCEL_DEPLOY_HOOK: Vercel → Project → Settings → Git → Deploy Hooks.
+# Пока секрета нет, задача просто ничего не делает.
+name: Обновить снимок каталога
+
+on:
+  schedule:
+    - cron: '17 21 * * *' # 02:17 по Астане
+  workflow_dispatch: {}
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Запустить пересборку на Vercel
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "Секрет VERCEL_DEPLOY_HOOK не задан — пропускаем."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK" > /dev/null
+          echo "Пересборка запущена."

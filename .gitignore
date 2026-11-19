@@ -5,3 +5,6 @@ dist/
 .DS_Store
 *.log
 .vercel
+
+# Снимок каталога создаётся при сборке (scripts/snapshot-catalog.mjs), в git не храним
+public/data/

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { loadSheet } from './sheetSource.js';
 import {
   PawPrint,
   ShieldCheck,
@@ -44,6 +45,7 @@ import {
   Send,
   AlertTriangle,
   RefreshCw,
+  Share,
 } from 'lucide-react';
 
 /* =====================================================================
@@ -423,9 +425,7 @@ const MOCK_PETS = [
  *     когда таблица заблокирована (и как декоративные фото в коллаже первого экрана).
  * ===================================================================== */
 
-const SHEET_ID = '10bRQ4TkJ1sY9PHzgxBgIYOFy15YNeabEziJC5kAynj4';
-const PETS_API_URL = `https://opensheet.elk.sh/${SHEET_ID}/pets`;
-const SHELTERS_API_URL = `https://opensheet.elk.sh/${SHEET_ID}/shelters`;
+// Адрес таблицы и порядок источников (opensheet → Google напрямую) — в src/sheetSource.js
 
 // Поля, которые всегда берутся из листа приютов (если там заполнены)
 const SHELTER_OWNED_FIELDS = ['shelter_verified', 'shelter_instagram', 'reports_url', 'kaspi_phone', 'kaspi_link', 'donation_usage'];
@@ -442,20 +442,6 @@ const cleanText = (v) => (v === undefined || v === null ? '' : String(v).trim())
 const isFilled = (v) => cleanText(v) !== '';
 const shelterKey = (name) => cleanText(name);
 
-// Загружает один лист; при ошибке возвращает null, чтобы не ронять второй запрос
-async function fetchSheet(url, label) {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Ошибка загрузки листа «${label}»: ${response.status}`);
-    }
-    const rows = await response.json();
-    return Array.isArray(rows) ? rows : [];
-  } catch (error) {
-    console.error(`Не удалось загрузить лист «${label}» из Google Таблицы:`, error);
-    return null;
-  }
-}
 
 // Подтягивает в строку питомца данные его приюта
 function mergePetWithShelter(pet, sheltersByName) {
@@ -489,10 +475,23 @@ function saveCache(key, rows) {
   }
 }
 
+// { rows, savedAt } или null
 function readCache(key) {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(key) || 'null');
-    return parsed && Array.isArray(parsed.rows) ? parsed.rows : null;
+    return parsed && Array.isArray(parsed.rows) ? { rows: parsed.rows, savedAt: parsed.savedAt || '' } : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+// Снимок каталога, который кладётся в сайт при каждой сборке (scripts/snapshot-catalog.mjs)
+async function readSnapshot() {
+  try {
+    const response = await fetch('/data/catalog.json', { cache: 'no-cache' });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return Array.isArray(data?.pets) && data.pets.length > 0 ? data : null;
   } catch (_) {
     return null;
   }
@@ -503,32 +502,51 @@ function readCache(key) {
  * Возвращает { pets, shelters, source, status }:
  *   pets     — строки питомцев (ещё без normalizePet)
  *   shelters — строки приютов или null (тогда приюты соберутся из строк питомцев)
- *   source   — 'sheet' | 'cache' | 'mock'
+ *   source   — 'sheet' | 'cache' | 'snapshot' | 'mock'
+ *   via      — откуда пришла таблица: 'opensheet' | 'google' (только для source = 'sheet')
  *   status   — 'ok' | 'empty' (таблица загрузилась, но активных нет) | 'error' (нет ни данных, ни кэша)
  */
 async function fetchData() {
-  const [freshPets, freshShelters] = await Promise.all([
-    fetchSheet(PETS_API_URL, 'pets'),
-    fetchSheet(SHELTERS_API_URL, 'shelters'),
-  ]);
+  const [petsSheet, sheltersSheet] = await Promise.all([loadSheet('pets'), loadSheet('shelters')]);
+  const freshPets = petsSheet?.rows || null;
+  const freshShelters = sheltersSheet?.rows || null;
 
   // Каждую успешную загрузку сохраняем как «последние реальные данные»
   if (freshPets) saveCache(CACHE_KEYS.pets, freshPets);
   if (freshShelters) saveCache(CACHE_KEYS.shelters, freshShelters);
 
-  const petRows = freshPets || readCache(CACHE_KEYS.pets);
-  const shelterRows = freshShelters || readCache(CACHE_KEYS.shelters);
-  const source = freshPets ? 'sheet' : 'cache';
+  let petRows = freshPets;
+  let shelterRows = freshShelters;
+  let source = 'sheet';
+
+  // Таблица недоступна совсем: берём то, что свежее, — кэш этого браузера или снимок из сборки сайта
+  if (!petRows) {
+    const cachedPets = readCache(CACHE_KEYS.pets);
+    const cachedShelters = readCache(CACHE_KEYS.shelters);
+    const snapshot = await readSnapshot();
+    const cacheIsNewer = cachedPets && (!snapshot || String(cachedPets.savedAt) >= String(snapshot.savedAt));
+    if (cacheIsNewer) {
+      petRows = cachedPets.rows;
+      shelterRows = shelterRows || cachedShelters?.rows || null;
+      source = 'cache';
+    } else if (snapshot) {
+      petRows = snapshot.pets;
+      shelterRows = shelterRows || snapshot.shelters || null;
+      source = 'snapshot';
+    }
+  } else if (!shelterRows) {
+    shelterRows = readCache(CACHE_KEYS.shelters)?.rows || null;
+  }
 
   if (!petRows) {
     if (isDevOrPreview()) {
       console.warn('Таблица недоступна (локальная разработка / превью) — показываем тестовые MOCK_PETS.');
-      return { pets: MOCK_PETS, shelters: null, source: 'mock', status: 'ok' };
+      return { pets: MOCK_PETS, shelters: null, source: 'mock', via: null, status: 'ok' };
     }
     console.error('Таблица недоступна, а сохранённых данных нет — показываем сообщение об ошибке.');
-    return { pets: [], shelters: null, source: 'none', status: 'error' };
+    return { pets: [], shelters: null, source: 'none', via: null, status: 'error' };
   }
-  if (!freshPets) console.warn('Таблица недоступна — показываем последние сохранённые данные из кэша.');
+  if (source !== 'sheet') console.warn(`Таблица недоступна — показываем сохранённые данные (${source === 'cache' ? 'кэш браузера' : 'снимок из сборки'}).`);
 
   // Активные записи: есть кличка и статус available (регистр и пробелы по краям не важны).
   // Пустые строки, строки с выпадающими списками и пристроенные (adopted) отбрасываются.
@@ -545,6 +563,7 @@ async function fetchData() {
     pets: activePets.map((pet) => mergePetWithShelter(pet, sheltersByName)),
     shelters: shelters.length > 0 ? shelters : null,
     source,
+    via: source === 'sheet' ? petsSheet.via : null,
     status: activePets.length > 0 ? 'ok' : 'empty',
   };
 }
@@ -2347,7 +2366,7 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
 
   const tags = sortTagsByCategory(splitTags(pet.character_tags));
   const waText = `Здравствуйте! Увидел(а) ${pet.name} на сайте AstanaPets, хочу узнать подробнее...`;
-  const waLink = `https://wa.me/${whatsappNumber(pet.curator_whatsapp)}?text=${encodeURIComponent(waText)}`;
+  const waLink = `https://wa.me/${whatsappNumber(pet.curator_whatsapp || pet.curator_phone)}?text=${encodeURIComponent(waText)}`;
   const base = { pet_id: pet.id, pet_name: pet.name, shelter: pet.shelter_name };
 
   const reveal = () => {
@@ -2374,9 +2393,19 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
 
       <div className="space-y-6 p-5 pb-8 sm:p-6">
         <div>
-          <h2 id="pet-modal-title" className="text-3xl font-bold tracking-tight ap-text-main">
-            {pet.name}
-          </h2>
+          <div className="flex items-start justify-between gap-3">
+            <h2 id="pet-modal-title" className="min-w-0 text-3xl font-bold tracking-tight ap-text-main">
+              {pet.name}
+            </h2>
+            <button
+              type="button"
+              onClick={() => sharePet({ pet, shelterName: pet.shelter_name, notify, source: 'pet_modal' })}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border ap-line ap-chip-idle px-3.5 py-2 text-sm font-bold transition-all duration-300 active:scale-95"
+            >
+              <Share className="h-4 w-4" />
+              Поделиться
+            </button>
+          </div>
           <p className="mt-1 text-sm font-semibold ap-text-soft">
             {pet.species === 'dog' ? 'Собака' : 'Кошка'} · {[SEX_LABEL[pet.sex], formatAge(pet.age_months), SIZE_LABEL[pet.size]].filter(Boolean).join(' · ')}
           </p>
@@ -2712,29 +2741,7 @@ function ThanksModal({ target, onClose, notify }) {
   if (!target) return null;
   const { shelter, pet } = target;
 
-  const share = async () => {
-    const url = pet ? petUrl(pet) : `${window.location.origin}/`;
-    // Сообщение для мессенджеров: короткие абзацы и призыв в конце, ссылка добавится последней строкой
-    const intro = pet
-      ? `Привет! 🐾 Знакомься: это ${pet.name} из приюта «${shelter.shelter_name}», ${pet.sex === 'female' ? 'она' : 'он'} ищет дом.`
-      : 'Привет! 🐾 Смотри, какой сайт — «Лапки Астаны»: там кошки и собаки из проверенных приютов Астаны ищут дом.';
-    const text = [
-      intro,
-      'На сайте можно выбрать питомца или поддержать приют переводом через Kaspi.',
-      'Загляни, вдруг там твой будущий друг 👇',
-    ].join('\n\n');
-    trackEvent('thanks_share_clicked', { shelter: shelter.shelter_name });
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: 'AstanaPets', text, url });
-        return;
-      }
-    } catch {
-      return; // человек закрыл окно «Поделиться»
-    }
-    const ok = await copyToClipboard(`${text}\n${url}`);
-    notify(ok ? 'Ссылка скопирована — отправьте её друзьям' : 'Не удалось скопировать ссылку');
-  };
+  const share = () => sharePet({ pet, shelterName: shelter.shelter_name, notify, source: 'thanks' });
 
   return (
     <Modal open={!!target} onClose={onClose} labelledBy="thanks-modal-title">
@@ -2810,6 +2817,41 @@ function syncPetParam(petId) {
   } catch {
     /* без History API ссылка просто не обновится */
   }
+}
+
+// Сообщение для мессенджеров: короткие абзацы, призыв и ссылка (на анкету, если она есть)
+function buildShareMessage(pet, shelterName) {
+  const intro = pet
+    ? `Привет! 🐾 Знакомься: это ${pet.name} из приюта «${shelterName}»${
+        pet.sex === 'female' ? ', она ищет дом.' : pet.sex === 'male' ? ', он ищет дом.' : ' — ищет дом.'
+      }`
+    : 'Привет! 🐾 Смотри, какой сайт — «Лапки Астаны»: там кошки и собаки из проверенных приютов Астаны ищут дом.';
+  const text = [
+    intro,
+    'На сайте можно выбрать питомца или поддержать приют переводом через Kaspi.',
+    'Загляни, вдруг там твой будущий друг 👇',
+  ].join('\n\n');
+  return { text, url: pet ? petUrl(pet) : `${window.location.origin}/` };
+}
+
+// Системное окно «Поделиться» на телефоне; на компьютере — копируем сообщение со ссылкой
+async function sharePet({ pet, shelterName, notify, source }) {
+  const { text, url } = buildShareMessage(pet, shelterName);
+  trackEvent(source === 'thanks' ? 'thanks_share_clicked' : 'pet_share_clicked', {
+    pet_id: pet?.id || null,
+    pet_name: pet?.name || null,
+    shelter: shelterName,
+  });
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: pet ? `${pet.name} — Лапки Астаны` : 'Лапки Астаны', text, url });
+      return;
+    }
+  } catch {
+    return; // человек закрыл окно «Поделиться»
+  }
+  const ok = await copyToClipboard(`${text}\n${url}`);
+  notify(ok ? 'Ссылка скопирована — отправьте её друзьям' : 'Не удалось скопировать ссылку');
 }
 
 function SheltersSection({ shelters, onDonate }) {
@@ -3170,13 +3212,15 @@ export default function App() {
   useEffect(() => {
     let alive = true;
     fetchData()
-      .then(({ pets: petRows, shelters: sheltersFromSheet, source, status }) => {
+      .then(({ pets: petRows, shelters: sheltersFromSheet, source, via, status }) => {
         if (!alive) return;
         setPets(petRows.map(normalizePet));
         setShelterRows(sheltersFromSheet ? sheltersFromSheet.map(normalizeShelter) : null);
         setDataStatus(status);
         if (status === 'error') trackEvent('catalog_load_failed', { reason: 'no_data_no_cache' });
         if (source === 'cache') trackEvent('catalog_loaded_from_cache');
+        if (source === 'snapshot') trackEvent('catalog_loaded_from_snapshot');
+        if (via === 'google') trackEvent('catalog_loaded_via_google'); // opensheet не ответил — сработал запасной путь
       })
       .catch((e) => {
         console.error('Не удалось загрузить данные', e);
