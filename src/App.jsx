@@ -2019,9 +2019,21 @@ function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
   const coverFallbacks = useMemo(() => (pet.photos || []).map(getSmartPhotoUrl), [pet.photos]);
 
   return (
-    <article className="ap-card ap-card-hover group flex flex-col overflow-hidden rounded-3xl border ap-line transition-all duration-300 hover:-translate-y-1">
+    // Клик по любому месту карточки открывает анкету; кнопки «Помочь» и ♡ останавливают всплытие
+    <article
+      onClick={() => onOpen(pet)}
+      className="ap-card ap-card-hover group flex cursor-pointer flex-col overflow-hidden rounded-3xl border ap-line transition-all duration-300 hover:-translate-y-1"
+    >
       <div className="ap-photo relative w-full overflow-hidden ap-sand-deep">
-        <button type="button" onClick={() => onOpen(pet)} aria-label={`Открыть карточку: ${pet.name}`} className="absolute inset-0 block h-full w-full">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpen(pet);
+          }}
+          aria-label={`Открыть карточку: ${pet.name}`}
+          className="absolute inset-0 block h-full w-full"
+        >
           <PhotoImg
             src={coverSrc}
             fallbacks={coverFallbacks}
@@ -2076,14 +2088,20 @@ function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
         <div className="mt-auto flex gap-2 pt-1">
           <button
             type="button"
-            onClick={() => onOpen(pet)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpen(pet);
+            }}
             className="inline-flex flex-1 items-center justify-center rounded-2xl ap-btn-accent px-4 py-3.5 text-sm font-bold transition-all duration-300 active:scale-95"
           >
             Познакомиться / Забрать
           </button>
           <button
             type="button"
-            onClick={() => onDonate(pet)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDonate(pet);
+            }}
             className="inline-flex items-center justify-center gap-1.5 rounded-2xl border-2 ap-btn-accent-soft px-4 py-3 text-sm font-bold transition-all duration-300 active:scale-95"
           >
             <Heart className="h-4 w-4" />
