@@ -946,6 +946,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .ap-catalog-block { background-color: #EAE6DF; }      /* каталог — нейтральный песочный без желтизны */
 .ap-forest-block { background-color: #283618; color: #FDFCFB; }  /* «Помочь приютам» — глубокий хвойный */
 .ap-footer { background-color: #F3F1ED; }
+.ap-footer-paw { color: #E36243; opacity: 0.12; }
 
 /* ---------- Текст ---------- */
 .ap-text-main { color: #18181B; }          /* zinc-900: заголовки и значения */
@@ -1104,6 +1105,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
    ===================================================================== */
 .ap-root.ap-dark { background-color: #1A1917; color: #F5F3EF; color-scheme: dark; }
 .ap-dark .ap-cream-block, .ap-dark .ap-footer { background-color: #1A1917; }
+.ap-dark .ap-footer-paw { opacity: 0.14; }
 .ap-dark .ap-catalog-block { background-color: #23221F; }
 .ap-dark .ap-forest-block { background-color: #1F2A15; }
 .ap-dark .ap-shelter-card { background-color: #2A3820; border-color: #3E4D2C; }
@@ -1455,16 +1457,21 @@ function AppLogo({ className = 'h-10 w-10' }) {
   return (
     <svg viewBox="0 0 48 48" className={`shrink-0 ${className}`} role="img" aria-label="Лапки Астаны">
       <rect width="48" height="48" rx="12" fill="#E36243" />
-      <g fill="#FFFFFF">
-        {/* 4 пальчика полукругом: центральные выше, боковые ниже */}
-        <ellipse cx="12.6" cy="22" rx="2.7" ry="3.5" transform="rotate(-28 12.6 22)" />
-        <ellipse cx="19.4" cy="14.6" rx="2.9" ry="3.8" transform="rotate(-10 19.4 14.6)" />
-        <ellipse cx="28.6" cy="14.6" rx="2.9" ry="3.8" transform="rotate(10 28.6 14.6)" />
-        <ellipse cx="35.4" cy="22" rx="2.7" ry="3.5" transform="rotate(28 35.4 22)" />
-        {/* Большая подушечка в форме сердца */}
-        <path d="M24 38.6C20.8 36.1 15.6 32.6 15.6 27.9C15.6 25.2 17.6 23.2 20.1 23.2C21.8 23.2 23.2 24.1 24 25.5C24.8 24.1 26.2 23.2 27.9 23.2C30.4 23.2 32.4 25.2 32.4 27.9C32.4 32.6 27.2 36.1 24 38.6Z" />
-      </g>
+      <PawShape fill="#FFFFFF" />
     </svg>
+  );
+}
+
+// Лапа из логотипа (без плашки): 4 пальчика полукругом и подушечка-сердце, в координатах 48×48
+function PawShape({ fill = 'currentColor' }) {
+  return (
+    <g fill={fill}>
+      <ellipse cx="12.6" cy="22" rx="2.7" ry="3.5" transform="rotate(-28 12.6 22)" />
+      <ellipse cx="19.4" cy="14.6" rx="2.9" ry="3.8" transform="rotate(-10 19.4 14.6)" />
+      <ellipse cx="28.6" cy="14.6" rx="2.9" ry="3.8" transform="rotate(10 28.6 14.6)" />
+      <ellipse cx="35.4" cy="22" rx="2.7" ry="3.5" transform="rotate(28 35.4 22)" />
+      <path d="M24 38.6C20.8 36.1 15.6 32.6 15.6 27.9C15.6 25.2 17.6 23.2 20.1 23.2C21.8 23.2 23.2 24.1 24 25.5C24.8 24.1 26.2 23.2 27.9 23.2C30.4 23.2 32.4 25.2 32.4 27.9C32.4 32.6 27.2 36.1 24 38.6Z" />
+    </g>
   );
 }
 
@@ -2839,8 +2846,16 @@ function FaqSection() {
 
 function Footer() {
   return (
-    <footer className="ap-footer">
-      <div className="mx-auto max-w-6xl space-y-4 px-4 py-10">
+    <footer className="ap-footer overflow-hidden">
+      <div className="relative mx-auto max-w-6xl space-y-4 px-4 py-10 md:pr-72">
+        {/* Полупрозрачная лапа из логотипа справа */}
+        <svg
+          viewBox="10 11 28 28"
+          className="ap-footer-paw pointer-events-none absolute right-4 top-1/2 hidden h-56 w-56 -translate-y-1/2 -rotate-12 md:block"
+          aria-hidden="true"
+        >
+          <PawShape />
+        </svg>
         <div className="flex items-center gap-2.5">
           <AppLogo className="h-9 w-9" />
           <span className="text-lg font-bold ap-text-main">Лапки Астаны · AstanaPets</span>
