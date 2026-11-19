@@ -603,6 +603,18 @@ function toTriState(v) {
   return 'unknown';
 }
 
+// Размер из таблицы: понимаем синонимы (big, крупный, L…), а не только small/medium/large
+const SIZE_ALIASES = {
+  small: ['small', 's', 'mini', 'little', 'tiny', 'маленький', 'маленькая', 'мелкий', 'мелкая', 'мини'],
+  medium: ['medium', 'm', 'mid', 'middle', 'average', 'средний', 'средняя'],
+  large: ['large', 'l', 'big', 'xl', 'huge', 'крупный', 'крупная', 'большой', 'большая'],
+};
+
+function normalizeSize(value) {
+  const v = String(value ?? '').trim().toLowerCase();
+  return Object.keys(SIZE_ALIASES).find((k) => SIZE_ALIASES[k].includes(v)) || '';
+}
+
 function normalizePet(row) {
   const bool = (v) => v === true || v === 'TRUE' || v === 'true' || v === '1' || v === 1;
   const num = (v) => Number(String(v ?? '0').replace(/\s/g, '')) || 0;
@@ -614,6 +626,7 @@ function normalizePet(row) {
     photos,
     photo_url: photos[0], // обложка для каталога, коллажа и слайдера
     age_months: num(row.age_months),
+    size: normalizeSize(row.size),
     shelter_verified: bool(row.shelter_verified),
     is_registered: bool(row.is_registered),
     is_vaccinated: bool(row.is_vaccinated),
@@ -2030,7 +2043,7 @@ function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
         <div>
           <h3 className="text-2xl font-bold tracking-tight ap-text-main">{pet.name}</h3>
           <p className="mt-0.5 text-sm font-semibold ap-text-soft">
-            {SEX_LABEL[pet.sex]} · {formatAge(pet.age_months)} · {SIZE_LABEL[pet.size]}
+            {[SEX_LABEL[pet.sex], formatAge(pet.age_months), SIZE_LABEL[pet.size]].filter(Boolean).join(' · ')}
           </p>
           {pet.shelter_name && (
             <p className="mt-1.5 flex items-center gap-1.5 text-sm font-semibold text-zinc-600">
@@ -2284,7 +2297,7 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
             {pet.name}
           </h2>
           <p className="mt-1 text-sm font-semibold ap-text-soft">
-            {pet.species === 'dog' ? 'Собака' : 'Кошка'} · {SEX_LABEL[pet.sex]} · {formatAge(pet.age_months)} · {SIZE_LABEL[pet.size]}
+            {pet.species === 'dog' ? 'Собака' : 'Кошка'} · {[SEX_LABEL[pet.sex], formatAge(pet.age_months), SIZE_LABEL[pet.size]].filter(Boolean).join(' · ')}
           </p>
           {tags.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1.5">
@@ -2306,7 +2319,7 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
           <DetailRow icon={Tag} label="Порода" value={pet.breed} />
           <DetailRow icon={Calendar} label="Возраст" value={pet.age_months > 0 ? formatAge(pet.age_months) : 'Уточняется'} />
           <DetailRow glyph={pet.sex === 'female' ? '♀' : '♂'} label="Пол" value={SEX_LABEL[pet.sex]} />
-          <DetailRow icon={Ruler} label="Размер" value={SIZE_LABEL[pet.size]} />
+          <DetailRow icon={Ruler} label="Размер" value={SIZE_LABEL[pet.size] || "Не указан"} />
         </DetailSection>
 
         <DetailSection title="Поведение и быт">
