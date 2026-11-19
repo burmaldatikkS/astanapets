@@ -38,7 +38,35 @@ import {
   FileText,
   Camera,
   ChevronLeft,
+  Menu,
+  Sun,
+  Moon,
+  Send,
 } from 'lucide-react';
+
+/* =====================================================================
+ * СВЯЗЬ С АВТОРОМ В TELEGRAM
+ * Впишите свой username без символа @ (например: 'astanapets_admin').
+ * ===================================================================== */
+const AUTHOR_TELEGRAM_USERNAME = 'your_username';
+const TELEGRAM_DEFAULT_MESSAGE = 'Здравствуйте! Пишу с сайта AstanaPets по поводу...';
+
+/**
+ * Открывает чат с автором в Telegram.
+ * Внутри Telegram Mini App — нативным методом, в обычном браузере — новой вкладкой
+ * (на телефонах ссылка t.me сразу открывает приложение Telegram).
+ * trackEvent объявлен ниже как function, поэтому доступен здесь при вызове.
+ */
+function openAuthorTelegram() {
+  trackEvent('author_telegram_clicked', { username: AUTHOR_TELEGRAM_USERNAME });
+  const url = `https://t.me/${AUTHOR_TELEGRAM_USERNAME}?text=${encodeURIComponent(TELEGRAM_DEFAULT_MESSAGE)}`;
+  const webApp = typeof window !== 'undefined' ? window.Telegram?.WebApp : undefined;
+  if (webApp && typeof webApp.openTelegramLink === 'function') {
+    webApp.openTelegramLink(url);
+  } else {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+}
 
 /* =====================================================================
  * 1. АНАЛИТИКА
@@ -851,6 +879,8 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .ap-btn-whatsapp:hover { background-color: #1E8D50; }
 .ap-btn-kaspi { background-color: #E5402F; color: #FDFCFB; }
 .ap-btn-kaspi:hover { background-color: #C93424; }
+.ap-btn-telegram { background-color: #229ED9; color: #FFFFFF; box-shadow: 0 4px 14px rgba(34, 158, 217, 0.25); }
+.ap-btn-telegram:hover { background-color: #1B87BA; }
 
 /* ---------- Хвойная секция «Помочь приютам» ---------- */
 .ap-shelter-card { background-color: #344620; border: 1px solid rgba(221, 161, 94, 0.22); }
@@ -882,7 +912,8 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .ap-collapse.is-open { grid-template-rows: 1fr; opacity: 1; }
 .ap-collapse > div { min-height: 0; overflow: hidden; }
 
-/* Модальные окна */
+/* Модальные окна и боковая шторка */
+.ap-drawer-panel { animation: ap-slide-left 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .ap-backdrop { animation: ap-fade 0.25s ease both; }
 .ap-modal-panel { max-height: 92vh; animation: ap-slide-up 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .ap-toast { animation: ap-slide-up 0.25s ease both; }
@@ -894,14 +925,97 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .ap-float-late { animation: ap-float 6.5s ease-in-out 2.4s infinite; }
 
 @keyframes ap-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ap-slide-left { from { transform: translateX(100%); } to { transform: translateX(0); } }
 @keyframes ap-slide-up { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes ap-pop { 0% { transform: scale(1); } 35% { transform: scale(1.35); } 60% { transform: scale(0.9); } 100% { transform: scale(1); } }
 @keyframes ap-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .ap-backdrop, .ap-modal-panel, .ap-toast, .ap-pop, .ap-float, .ap-float-slow, .ap-float-late { animation: none; }
+  .ap-backdrop, .ap-modal-panel, .ap-drawer-panel, .ap-toast, .ap-pop, .ap-float, .ap-float-slow, .ap-float-late { animation: none; }
   .ap-collapse { transition: none; }
 }
+/* =====================================================================
+   ТЁМНАЯ ТЕМА — тёплая землисто-графитовая, без холодного синего и неона.
+   Включается классом .ap-dark на корневом блоке.
+   ===================================================================== */
+.ap-root.ap-dark { background-color: #1A1917; color: #F5F3EF; color-scheme: dark; }
+.ap-dark .ap-cream-block, .ap-dark .ap-footer { background-color: #1A1917; }
+.ap-dark .ap-catalog-block { background-color: #23221F; }
+.ap-dark .ap-forest-block { background-color: #1F2A15; }
+.ap-dark .ap-shelter-card { background-color: #2A3820; border-color: #3E4D2C; }
+.ap-dark .ap-shelter-card:hover { background-color: #304026; border-color: #5A6B3E; }
+
+.ap-dark .ap-text-main { color: #F5F3EF; }
+.ap-dark .ap-text-strong { color: #E7E3DC; }
+.ap-dark .ap-text-muted { color: #B5AFA6; }
+.ap-dark .ap-text-soft { color: #A39D94; }
+.ap-dark .ap-text-faint { color: #8A847B; }
+.ap-dark .ap-text-accent { color: #EE8A70; }
+.ap-dark .ap-text-sage-deep { color: #B3C27A; }
+.ap-dark .ap-link:hover { color: #F5F3EF; }
+
+.ap-dark .ap-surface { background-color: #33302C; }
+.ap-dark .ap-sand { background-color: #34312D; }
+.ap-dark .ap-sand-deep { background-color: #3A3732; }
+.ap-dark .ap-paper { background-color: #2B2926; }
+.ap-dark .ap-modal-bg { background-color: #1A1917; }
+.ap-dark .ap-header-glass { background-color: rgba(26, 25, 23, 0.9); }
+.ap-dark .ap-glass { background-color: rgba(43, 41, 38, 0.92); color: #E7E3DC; }
+.ap-dark .ap-overlay { background-color: rgba(12, 11, 10, 0.6); }
+.ap-dark .ap-line { border-color: #3E3B36; }
+.ap-dark .ap-line-soft { border-color: #34312D; }
+.ap-dark .ap-divide > * { border-color: #34312D; }
+.ap-dark .ap-shadow-soft { box-shadow: 0 2px 10px rgba(12, 11, 10, 0.35); }
+.ap-dark .ap-card { background-color: #2B2926; border-color: #3E3B36; box-shadow: 0 4px 20px rgba(12, 11, 10, 0.25); }
+.ap-dark .ap-card-hover:hover { border-color: #5A554D; box-shadow: 0 10px 30px rgba(12, 11, 10, 0.35); }
+
+/* Главные действия: фирменная олива, чуть светлее для читаемости на тёмном */
+.ap-dark .ap-btn-accent, .ap-dark .ap-chip-active, .ap-dark .ap-toggle-active {
+  background-color: #6F7D42; border-color: #6F7D42; color: #F5F3EF; box-shadow: 0 4px 14px rgba(12, 11, 10, 0.3);
+}
+.ap-dark .ap-btn-accent:hover { background-color: #606C38; }
+.ap-dark .ap-btn-outline-accent { background-color: rgba(111, 125, 66, 0.2); color: #CBD69A; border-color: #6F7D42; }
+.ap-dark .ap-chip-idle, .ap-dark .ap-toggle-idle { background-color: #2B2926; color: #D6D1C9; border-color: #45413B; }
+.ap-dark .ap-chip-idle:hover, .ap-dark .ap-toggle-idle:hover { background-color: #34312D; border-color: #6A645A; color: #F5F3EF; }
+.ap-dark .ap-tab-idle { color: #B5AFA6; }
+.ap-dark .ap-tab-idle:hover { background-color: #2B2926; color: #F5F3EF; }
+
+/* Помощь и акценты: кораллово-терракотовый */
+.ap-dark .ap-btn-caramel { background-color: #E36243; color: #FDFCFB; box-shadow: 0 4px 14px rgba(227, 98, 67, 0.25); }
+.ap-dark .ap-btn-caramel:hover { background-color: #CC5233; }
+.ap-dark .ap-btn-accent-soft { background-color: rgba(227, 98, 67, 0.14); color: #F09A80; border-color: rgba(227, 98, 67, 0.4); }
+.ap-dark .ap-btn-accent-soft:hover { background-color: rgba(227, 98, 67, 0.24); border-color: #E36243; }
+.ap-dark .ap-accent-soft, .ap-dark .ap-hover-accent-soft:hover { background-color: rgba(227, 98, 67, 0.16); }
+.ap-dark .ap-heart-on { color: #E36243; fill: #E36243; }
+.ap-dark .ap-sage, .ap-dark .ap-badge-honey { color: #1A1917; }
+
+.ap-dark .ap-sage-fill { background-color: #8A9A52; }
+.ap-dark .ap-sage-soft { background-color: rgba(111, 125, 66, 0.22); }
+.ap-dark .ap-sage-panel { background-color: rgba(111, 125, 66, 0.14); border-color: rgba(111, 125, 66, 0.4); }
+.ap-dark .ap-track-off { background-color: #45413B; }
+.ap-dark .ap-track-on { background-color: #8A9A52; }
+.ap-dark .ap-knob { background-color: #F5F3EF; }
+
+.ap-dark .ap-bg-graphite { background-color: #F5F3EF; color: #1A1917; }
+.ap-dark .ap-bg-graphite:hover { background-color: #E0DCD4; }
+.ap-dark .ap-input, .ap-dark .ap-field { background-color: #23221F; border-color: #45413B; color: #F5F3EF; }
+.ap-dark .ap-input:focus { border-color: #8A9A52; background-color: #2B2926; box-shadow: 0 0 0 4px rgba(138, 154, 82, 0.18); }
+
+.ap-dark .ap-tag-trait { background-color: rgba(163, 179, 107, 0.18); color: #CBD69A; }
+.ap-dark .ap-tag-skill, .ap-dark .ap-tag-energy { background-color: rgba(221, 161, 94, 0.18); color: #EBC08E; }
+.ap-dark .ap-thumb-active { box-shadow: 0 0 0 2px #1A1917, 0 0 0 4px #8A9A52; }
+
+/* Стандартные классы Tailwind, которые встречаются в разметке */
+.ap-dark .text-zinc-900 { color: #F5F3EF; }
+.ap-dark .text-zinc-700 { color: #D6D1C9; }
+.ap-dark .text-zinc-600 { color: #B5AFA6; }
+.ap-dark .text-zinc-500 { color: #A39D94; }
+.ap-dark .text-emerald-700 { color: #93CDA0; }
+.ap-dark .text-emerald-600 { color: #86C494; }
+.ap-dark .text-rose-600 { color: #F2907E; }
+.ap-dark .bg-emerald-100 { background-color: rgba(134, 196, 148, 0.16); }
+.ap-dark .bg-rose-100 { background-color: rgba(242, 144, 126, 0.16); }
+.ap-dark .bg-zinc-100 { background-color: rgba(245, 243, 239, 0.08); }
 `;
 
 function GlobalStyles() {
@@ -934,6 +1048,16 @@ function sortTagsByCategory(tags) {
     .map((tag, index) => ({ tag, index, category: getTagCategory(tag) }))
     .sort((a, b) => a.category - b.category || a.index - b.index)
     .map((item) => item.tag);
+}
+
+const THEME_KEY = 'astanapets:theme';
+
+function loadTheme() {
+  try {
+    return window.localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light';
+  } catch (_) {
+    return 'light';
+  }
 }
 
 const FAVORITES_KEY = 'astanapets:favorites';
@@ -1151,14 +1275,151 @@ function PhotoImg({ src, fallbacks = [], alt, className = '', eager = false }) {
  * 7. СЕКЦИИ СТРАНИЦЫ
  * ===================================================================== */
 
-function Header({ favoritesCount, favoritesOnly, onToggleFavorites }) {
+/* ---------- Логотип: белая лапка с подушечкой-сердцем на коралловом фоне ---------- */
+function AppLogo({ className = 'h-10 w-10' }) {
+  return (
+    <svg viewBox="0 0 48 48" className={`shrink-0 ${className}`} role="img" aria-label="Лапки Астаны">
+      <rect width="48" height="48" rx="12" fill="#E36243" />
+      <g fill="#FFFFFF">
+        {/* 4 пальчика полукругом: центральные выше, боковые ниже */}
+        <ellipse cx="12.6" cy="22" rx="2.7" ry="3.5" transform="rotate(-28 12.6 22)" />
+        <ellipse cx="19.4" cy="14.6" rx="2.9" ry="3.8" transform="rotate(-10 19.4 14.6)" />
+        <ellipse cx="28.6" cy="14.6" rx="2.9" ry="3.8" transform="rotate(10 28.6 14.6)" />
+        <ellipse cx="35.4" cy="22" rx="2.7" ry="3.5" transform="rotate(28 35.4 22)" />
+        {/* Большая подушечка в форме сердца */}
+        <path d="M24 38.6C20.8 36.1 15.6 32.6 15.6 27.9C15.6 25.2 17.6 23.2 20.1 23.2C21.8 23.2 23.2 24.1 24 25.5C24.8 24.1 26.2 23.2 27.9 23.2C30.4 23.2 32.4 25.2 32.4 27.9C32.4 32.6 27.2 36.1 24 38.6Z" />
+      </g>
+    </svg>
+  );
+}
+
+/* ---------- Боковая шторка: тема, связь с автором, навигация ---------- */
+function SideDrawer({ open, onClose, theme, onThemeChange }) {
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  const goTo = (id) => {
+    trackEvent('menu_nav_clicked', { target: id });
+    onClose();
+    // ждём, пока шторка закроется и вернётся прокрутка страницы
+    window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+  };
+
+  const THEMES = [
+    { value: 'light', label: 'Светлая', icon: Sun },
+    { value: 'dark', label: 'Тёмная', icon: Moon },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Меню">
+      <div className="ap-backdrop ap-overlay absolute inset-0 backdrop-blur-sm" onClick={onClose} />
+      <aside className="ap-drawer-panel ap-modal-bg absolute right-0 top-0 flex h-full w-full max-w-sm flex-col overflow-y-auto border-l ap-line">
+        <div className="flex items-center justify-between gap-3 border-b ap-line-soft px-5 py-4">
+          <div className="flex items-center gap-2.5">
+            <AppLogo className="h-9 w-9" />
+            <span className="text-lg font-bold tracking-tight ap-text-main">Меню</span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Закрыть меню"
+            className="flex h-10 w-10 items-center justify-center rounded-full border-2 ap-chip-idle transition-all duration-300 active:scale-95"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 space-y-6 p-5">
+          <section>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider ap-text-faint">Тема оформления</p>
+            <div className="grid grid-cols-2 gap-1.5 rounded-2xl ap-sand-deep p-1.5" role="radiogroup" aria-label="Тема оформления">
+              {THEMES.map((t) => {
+                const active = theme === t.value;
+                const Icon = t.icon;
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => onThemeChange(t.value)}
+                    className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-bold transition-all duration-300 ${
+                      active ? 'ap-btn-accent' : 'ap-tab-idle'
+                    }`}
+                  >
+                    <Icon className="h-5 w-5" />
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="ap-card rounded-2xl p-5">
+            <span className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl ap-btn-telegram">
+              <Send className="h-5 w-5" />
+            </span>
+            <p className="text-base font-bold leading-snug tracking-tight ap-text-main">Есть вопросы, идеи или хотите добавить приют Астаны?</p>
+            <p className="mt-1 text-sm ap-text-muted">Напишите автору проекта — отвечу в Telegram.</p>
+            <button
+              type="button"
+              onClick={openAuthorTelegram}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl ap-btn-telegram px-5 py-3.5 text-base font-bold transition-all duration-300 active:scale-95"
+            >
+              <Send className="h-5 w-5" />
+              Написать в Telegram
+            </button>
+            <p className="mt-2 text-center text-sm font-semibold ap-text-soft">@{AUTHOR_TELEGRAM_USERNAME}</p>
+          </section>
+
+          <section>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider ap-text-faint">Разделы</p>
+            <div className="divide-y ap-divide overflow-hidden rounded-2xl border ap-line ap-paper">
+              {[
+                { id: 'catalog', label: 'Каталог питомцев', icon: PawPrint },
+                { id: 'help', label: 'Помочь приютам', icon: Heart },
+              ].map((link) => {
+                const Icon = link.icon;
+                return (
+                  <button
+                    key={link.id}
+                    type="button"
+                    onClick={() => goTo(link.id)}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left text-base font-semibold ap-text-main transition-colors duration-300 ap-hover-accent-soft"
+                  >
+                    <span className="flex items-center gap-3">
+                      <Icon className="h-5 w-5 ap-text-accent" />
+                      {link.label}
+                    </span>
+                    <ChevronRight className="h-5 w-5 ap-text-faint" />
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function Header({ favoritesCount, favoritesOnly, onToggleFavorites, onOpenMenu }) {
   return (
     <header className="sticky top-0 z-40 border-b ap-line-soft ap-header-glass backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
         <a href="#top" className="flex items-center gap-2.5">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl ap-btn-accent">
-            <PawPrint className="h-5 w-5" />
-          </span>
+          <AppLogo className="h-11 w-11" />
           <span className="leading-tight">
             <span className="block text-lg font-bold ap-text-main">Лапки Астаны</span>
             <span className="block text-xs font-semibold ap-text-soft">AstanaPets</span>
@@ -1182,6 +1443,14 @@ function Header({ favoritesCount, favoritesOnly, onToggleFavorites }) {
           >
             <Heart className={`h-4 w-4 ${favoritesOnly ? 'ap-fill-ivory' : favoritesCount ? 'ap-heart-on' : ''}`} />
             <span>{favoritesCount}</span>
+          </button>
+          <button
+            type="button"
+            onClick={onOpenMenu}
+            aria-label="Открыть меню"
+            className="flex h-10 w-10 items-center justify-center rounded-full border-2 ap-chip-idle transition-all duration-300 active:scale-95"
+          >
+            <Menu className="h-5 w-5" />
           </button>
         </div>
       </div>
@@ -2143,9 +2412,7 @@ function Footer() {
     <footer className="ap-footer">
       <div className="mx-auto max-w-6xl space-y-4 px-4 py-10">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl ap-btn-accent">
-            <PawPrint className="h-4 w-4" />
-          </span>
+          <AppLogo className="h-9 w-9" />
           <span className="text-lg font-bold ap-text-main">Лапки Астаны · AstanaPets</span>
         </div>
         <p className="max-w-3xl text-sm font-medium leading-relaxed ap-text-muted">
@@ -2172,6 +2439,31 @@ export default function App() {
   const [toast, setToast] = useState('');
   const [favorites, setFavorites] = useState(loadFavorites);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [theme, setTheme] = useState(loadTheme);
+
+  // Тема: сохраняем выбор и красим фон страницы под ней (видно при «перетягивании» экрана)
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(THEME_KEY, theme);
+    } catch (_) {
+      /* хранилище недоступно — тема живёт до перезагрузки */
+    }
+    document.documentElement.style.colorScheme = theme;
+    document.body.style.backgroundColor = theme === 'dark' ? '#1A1917' : '#F3F1ED';
+  }, [theme]);
+
+  const changeTheme = (next) => {
+    if (next === theme) return;
+    setTheme(next);
+    trackEvent('theme_changed', { theme: next });
+  };
+
+  const openMenu = () => {
+    setMenuOpen(true);
+    trackEvent('menu_opened');
+  };
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
 
   useEffect(() => {
     let alive = true;
@@ -2289,9 +2581,9 @@ export default function App() {
   };
 
   return (
-    <div className="ap-root ap-clip-x w-full min-h-screen ap-text-main antialiased">
+    <div className={`ap-root ap-clip-x w-full min-h-screen ap-text-main antialiased ${theme === 'dark' ? 'ap-dark' : ''}`}>
       <GlobalStyles />
-      <Header favoritesCount={favorites.length} favoritesOnly={favoritesOnly} onToggleFavorites={toggleFavoritesView} />
+      <Header favoritesCount={favorites.length} favoritesOnly={favoritesOnly} onToggleFavorites={toggleFavoritesView} onOpenMenu={openMenu} />
       <main>
         <Hero petsCount={availablePets.length} sheltersCount={activeSheltersCount} previewPets={availablePets} onOpenPet={openPet} />
 
@@ -2374,6 +2666,7 @@ export default function App() {
         onToggleFavorite={toggleFavorite}
       />
       <DonateModal target={donateTarget} onClose={() => setDonateTarget(null)} notify={setToast} />
+      <SideDrawer open={menuOpen} onClose={closeMenu} theme={theme} onThemeChange={changeTheme} />
       <Toast message={toast} />
     </div>
   );
