@@ -923,11 +923,10 @@ const GLOBAL_CSS = `
 
 /* ---------- Каркас и шрифт ----------
    Один шрифт на всё: в Rubik есть кириллица, латиница, цифры и знак ₸, поэтому
-   «1 000 ₸», «Kaspi» и «AstanaPets» выглядят так же, как русский текст рядом. */
+   цифры, «Kaspi» и «AstanaPets» выглядят так же, как русский текст рядом. */
 .ap-root, .ap-root button, .ap-root input, .ap-root a, .ap-root label {
   font-family: 'Rubik', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
-.ap-amount { white-space: nowrap; font-weight: 700; color: #F0C48F; }
 .ap-root { background-color: #F3F1ED; color: #18181B; -webkit-font-smoothing: antialiased; }
 /* Воздушный основной текст; :where() не перебивает явные классы leading-* */
 :where(.ap-root) p, :where(.ap-root) li, :where(.ap-root) blockquote { line-height: 1.65; }
@@ -2714,14 +2713,14 @@ function ThanksModal({ target, onClose, notify }) {
   const { shelter, pet } = target;
 
   const share = async () => {
-    const url = `${window.location.origin}/`;
+    const url = pet ? petUrl(pet) : `${window.location.origin}/`;
     // Сообщение для мессенджеров: короткие абзацы и призыв в конце, ссылка добавится последней строкой
     const intro = pet
       ? `Привет! 🐾 Знакомься: это ${pet.name} из приюта «${shelter.shelter_name}», ${pet.sex === 'female' ? 'она' : 'он'} ищет дом.`
       : 'Привет! 🐾 Смотри, какой сайт — «Лапки Астаны»: там кошки и собаки из проверенных приютов Астаны ищут дом.';
     const text = [
       intro,
-      'Можно выбрать питомца или помочь приюту переводом через Kaspi — даже 1 000 ₸ это корм на день для нескольких животных.',
+      'На сайте можно выбрать питомца или поддержать приют переводом через Kaspi.',
       'Загляни, вдруг там твой будущий друг 👇',
     ].join('\n\n');
     trackEvent('thanks_share_clicked', { shelter: shelter.shelter_name });
@@ -2786,6 +2785,33 @@ function ThanksModal({ target, onClose, notify }) {
   );
 }
 
+// Ссылка на анкету: https://astanapets.vercel.app/?pet=pet-536 — открывает сайт сразу с этой анкетой
+const PET_PARAM = 'pet';
+
+function petUrl(pet) {
+  return `${window.location.origin}/?${PET_PARAM}=${encodeURIComponent(pet.id)}`;
+}
+
+function readPetParam() {
+  try {
+    return new URLSearchParams(window.location.search).get(PET_PARAM);
+  } catch {
+    return null;
+  }
+}
+
+// Держим адрес в строке браузера в соответствии с открытой анкетой (без новой записи в истории)
+function syncPetParam(petId) {
+  try {
+    const url = new URL(window.location.href);
+    if (petId) url.searchParams.set(PET_PARAM, petId);
+    else url.searchParams.delete(PET_PARAM);
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  } catch {
+    /* без History API ссылка просто не обновится */
+  }
+}
+
 function SheltersSection({ shelters, onDonate }) {
   return (
     <section id="help" className="ap-forest-block scroll-mt-20">
@@ -2796,7 +2822,7 @@ function SheltersSection({ shelters, onDonate }) {
         </span>
         <h2 className="mt-3 text-3xl font-bold tracking-tight ap-on-dark sm:text-4xl">Помочь приютам</h2>
         <p className="mt-2 max-w-2xl text-base ap-on-dark-muted">
-          Даже <span className="ap-amount">1&nbsp;000&nbsp;₸</span> — это корм на день для нескольких животных.
+          Выберите приют и поддержите его любой суммой.
         </p>
         {/* Единственное подробное объяснение, как устроены деньги; в остальных местах — короткие подписи */}
         <div className="mt-6 flex max-w-3xl items-start gap-3 rounded-2xl ap-shelter-card p-5">
@@ -2945,7 +2971,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Не готов забрать, но хочу помочь. Что можно сделать?',
-    a: 'Переведите любую сумму в разделе «Помочь приютам» — даже 1 000 ₸ помогает. Ещё можно рассказать о питомце друзьям или спросить куратора о волонтёрстве и передержке.',
+    a: 'Переведите любую сумму в разделе «Помочь приютам». Ещё можно рассказать о питомце друзьям или спросить куратора о волонтёрстве и передержке.',
   },
   {
     q: 'Питомец уже нашёл дом, а анкета ещё на сайте?',
@@ -3186,6 +3212,28 @@ export default function App() {
   }, [favorites]);
 
   const availablePets = useMemo(() => pets.filter((p) => !p.status || p.status === 'available'), [pets]);
+
+  // Ссылка вида ?pet=pet-536: после загрузки каталога сразу открываем эту анкету
+  const deepLinkHandled = useRef(false);
+  useEffect(() => {
+    if (deepLinkHandled.current || loading) return;
+    deepLinkHandled.current = true;
+    const id = readPetParam();
+    if (!id) return;
+    const pet = availablePets.find((p) => String(p.id) === id);
+    if (pet) {
+      setActivePet(pet);
+      trackEvent('pet_link_opened', { pet_id: pet.id, pet_name: pet.name, shelter: pet.shelter_name });
+    } else {
+      syncPetParam(null); // анкеты уже нет (например, питомца забрали) — просто показываем каталог
+    }
+  }, [loading, availablePets]);
+
+  // Открытая анкета отражается в адресе, чтобы ссылку можно было скопировать прямо из браузера
+  useEffect(() => {
+    if (!deepLinkHandled.current) return;
+    syncPetParam(activePet ? activePet.id : null);
+  }, [activePet]);
   const filtered = useMemo(() => applyFilters(availablePets, filters), [availablePets, filters]);
   const shown = useMemo(() => (favoritesOnly ? filtered.filter((p) => favorites.includes(p.id)) : filtered), [filtered, favorites, favoritesOnly]);
 
