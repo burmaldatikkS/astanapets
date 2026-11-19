@@ -44,6 +44,8 @@ import {
   Send,
   AlertTriangle,
   RefreshCw,
+  HandCoins,
+  Handshake,
 } from 'lucide-react';
 
 /* =====================================================================
@@ -2740,7 +2742,7 @@ function HelpIllustration({ className = '' }) {
 const FAQ_ITEMS = [
   {
     q: 'Сколько стоит забрать питомца?',
-    a: 'AstanaPets не берёт никаких денег — ни за просмотр анкет, ни за контакты. Условия передачи (договор, расходы на прививки или стерилизацию) у каждого приюта свои: уточните их у куратора до встречи.',
+    a: 'AstanaPets не берёт денег ни за просмотр анкет, ни за контакты кураторов. Условия передачи (договор, расходы на прививки или стерилизацию) у каждого приюта свои: уточните их у куратора до встречи.',
   },
   {
     q: 'Как забрать питомца?',
@@ -2768,7 +2770,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Я из приюта. Как добавить наших животных?',
-    a: 'Напишите автору проекта в Telegram — расскажем, как подключиться. Это бесплатно.',
+    a: 'Напишите автору проекта в Telegram — расскажем, как подключиться. Сейчас подключение бесплатное.',
   },
 ];
 
@@ -2796,12 +2798,46 @@ function FaqItem({ item, open, onToggle, id }) {
   );
 }
 
+// Плашка «О проекте» перед FAQ: кто мы и чем не являемся (формулировки — о текущем положении дел)
+const ABOUT_POINTS = [
+  { icon: HandCoins, title: 'Не берём денег', text: 'Ни с тех, кто ищет питомца, ни с приютов.' },
+  { icon: Wallet, title: 'Не принимаем пожертвования', text: 'Переводы идут напрямую приютам через Kaspi — мы их даже не видим.' },
+  { icon: Handshake, title: 'Не участвуем в передаче', text: 'Мы не приют и не посредник: обо всём вы договариваетесь с куратором.' },
+];
+
+function AboutProject() {
+  return (
+    <div className="ap-card rounded-3xl border p-6 sm:p-8">
+      <span className="inline-flex items-center gap-1.5 rounded-full ap-sand-deep px-3 py-1 text-xs font-bold ap-text-strong">
+        <Sparkles className="h-3.5 w-3.5" />
+        О проекте
+      </span>
+      <h2 className="mt-3 text-2xl font-bold tracking-tight ap-text-main sm:text-3xl">Сделано на чистом энтузиазме</h2>
+      <p className="mt-2 text-base font-medium leading-relaxed ap-text-muted">
+        AstanaPets — информационный сервис. Мы собираем анкеты питомцев из проверенных приютов Астаны в одном месте, чтобы им было проще найти дом.
+      </p>
+      <ul className="mt-6 grid gap-4 sm:grid-cols-3">
+        {ABOUT_POINTS.map(({ icon: Icon, title, text }) => (
+          <li key={title} className="rounded-2xl ap-sand p-4">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl ap-btn-accent">
+              <Icon className="h-5 w-5" />
+            </span>
+            <p className="mt-3 text-sm font-bold ap-text-main">{title}</p>
+            <p className="mt-1 text-sm font-medium leading-relaxed ap-text-muted">{text}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function FaqSection() {
   const [openIndex, setOpenIndex] = useState(0);
   return (
     <section id="faq" className="ap-cream-block scroll-mt-20 border-t ap-line">
       <div className="mx-auto max-w-3xl px-4 py-14">
-        <span className="inline-flex items-center gap-1.5 rounded-full ap-sand-deep px-3 py-1 text-xs font-bold ap-text-strong">
+        <AboutProject />
+        <span className="mt-14 inline-flex items-center gap-1.5 rounded-full ap-sand-deep px-3 py-1 text-xs font-bold ap-text-strong">
           <HelpCircle className="h-3.5 w-3.5" />
           FAQ
         </span>
