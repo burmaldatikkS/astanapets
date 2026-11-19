@@ -907,7 +907,7 @@ const isFiltersDirty = (f) => Object.keys(DEFAULT_FILTERS).some((k) => f[k] !== 
 /* =====================================================================
  * 5. СТИЛИ, ШРИФТ И АНИМАЦИИ
  * ---------------------------------------------------------------------
- * Палитра Coolors из 5 цветов + шрифт Plus Jakarta Sans / Rubik.
+ * Палитра Coolors из 5 цветов + шрифт Rubik.
  * Все фирменные цвета заданы семантическими CSS-классами с префиксом .ap-
  * (см. GLOBAL_CSS), без произвольных классов Tailwind в квадратных скобках.
  *   #F3F1ED — шапка и первый экран, #EAE6DF — каталог, карточки и окна #FDFCFB
@@ -919,14 +919,15 @@ const isFiltersDirty = (f) => Object.keys(DEFAULT_FILTERS).some((k) => f[k] !== 
  * ===================================================================== */
 
 const GLOBAL_CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Rubik:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap');
 
 /* ---------- Каркас и шрифт ----------
-   Plus Jakarta Sans не содержит кириллицы, поэтому русские буквы браузер берёт из Rubik,
-   а латиница и цифры остаются в Plus Jakarta Sans. */
+   Один шрифт на всё: в Rubik есть кириллица, латиница, цифры и знак ₸, поэтому
+   «1 000 ₸», «Kaspi» и «AstanaPets» выглядят так же, как русский текст рядом. */
 .ap-root, .ap-root button, .ap-root input, .ap-root a, .ap-root label {
-  font-family: 'Plus Jakarta Sans', 'Rubik', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: 'Rubik', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
+.ap-amount { white-space: nowrap; font-weight: 700; color: #F0C48F; }
 .ap-root { background-color: #F3F1ED; color: #18181B; -webkit-font-smoothing: antialiased; }
 /* Воздушный основной текст; :where() не перебивает явные классы leading-* */
 :where(.ap-root) p, :where(.ap-root) li, :where(.ap-root) blockquote { line-height: 1.65; }
@@ -1925,7 +1926,7 @@ function Filters({ filters, setFilter, reset, resultsCount }) {
         </button>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[auto_auto_1fr] lg:gap-8">
+      <div className="grid gap-4 lg:grid-cols-2 lg:gap-x-8">
         {basicGroups.map((group) => (
           <div key={group.key} className="min-w-0">
             <p className="mb-2 text-xs font-bold uppercase tracking-wide ap-text-soft">{group.label}</p>
@@ -2660,7 +2661,7 @@ function SheltersSection({ shelters, onDonate }) {
         </span>
         <h2 className="mt-3 text-3xl font-bold tracking-tight ap-on-dark sm:text-4xl">Помочь приютам</h2>
         <p className="mt-2 max-w-2xl text-base ap-on-dark-muted">
-          Даже 1 000 ₸ — это корм на день для нескольких животных.
+          Даже <span className="ap-amount">1&nbsp;000&nbsp;₸</span> — это корм на день для нескольких животных.
         </p>
         {/* Единственное подробное объяснение, как устроены деньги; в остальных местах — короткие подписи */}
         <div className="mt-6 flex max-w-3xl items-start gap-3 rounded-2xl ap-shelter-card p-5">
