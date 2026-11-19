@@ -2051,11 +2051,32 @@ function CardFundraiser({ collected, goal, purpose }) {
   );
 }
 
-// Теги характера в одну строку: плашки по ширине текста; что не влезло — «+N» (полный список в анкете).
+// Теги характера: плашки по ширине текста, не больше maxRows рядов; что не влезло — «+N» (полный список в анкете).
 // Ширину меряем по невидимой копии строки, пересчитываем при изменении размера карточки и после загрузки шрифта.
 const TAG_GAP = 6;
 
-function TagRow({ tags }) {
+// Раскладка первых count плашек по рядам; true, если влезли в maxRows рядов (с местом под «+N», если нужно)
+function fitsInRows(widths, count, available, maxRows, moreWidth) {
+  let rows = 1;
+  let line = 0;
+  for (let i = 0; i < count; i += 1) {
+    const add = (line > 0 ? TAG_GAP : 0) + widths[i];
+    if (line > 0 && line + add > available) {
+      rows += 1;
+      line = widths[i];
+    } else {
+      line += add;
+    }
+    if (rows > maxRows || line > available) return false;
+  }
+  if (count < widths.length) {
+    // «+N» должен встать в конец последнего ряда или начать новый, если ряды ещё остались
+    if (line + TAG_GAP + moreWidth > available) return rows < maxRows;
+  }
+  return true;
+}
+
+function TagRow({ tags, maxRows = 1 }) {
   const boxRef = useRef(null);
   const measureRef = useRef(null);
   const [visibleCount, setVisibleCount] = useState(tags.length);
@@ -2069,26 +2090,16 @@ function TagRow({ tags }) {
       const chips = [...measure.children];
       const widths = chips.slice(0, tags.length).map((el) => el.offsetWidth);
       const moreWidth = chips[tags.length]?.offsetWidth || 0;
-      let used = 0;
-      let count = 0;
-      for (let i = 0; i < widths.length; i += 1) {
-        const next = used + (count > 0 ? TAG_GAP : 0) + widths[i];
-        const restHidden = i < widths.length - 1;
-        const reserve = restHidden ? TAG_GAP + moreWidth : 0;
-        if (next + reserve > available) break;
-        used = next;
-        count += 1;
-      }
-      // Если влезли все, кроме места под «+N», проверяем без резерва
-      if (count === widths.length - 1 && used + TAG_GAP + widths[count] <= available) count += 1;
-      setVisibleCount(Math.max(1, count));
+      let count = widths.length;
+      while (count > 1 && !fitsInRows(widths, count, available, maxRows, moreWidth)) count -= 1;
+      setVisibleCount(count);
     };
     recalc();
     const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(recalc) : null;
     observer?.observe(box);
     document.fonts?.ready?.then(recalc).catch(() => {});
     return () => observer?.disconnect();
-  }, [tags]);
+  }, [tags, maxRows]);
 
   if (tags.length === 0) return null;
   const hidden = tags.length - visibleCount;
@@ -2096,7 +2107,7 @@ function TagRow({ tags }) {
 
   return (
     <div ref={boxRef} className="relative">
-      <div className="flex gap-1.5 overflow-hidden">
+      <div data-tags className={`flex gap-1.5 ${maxRows > 1 ? 'flex-wrap' : 'overflow-hidden'}`}>
         {tags.slice(0, visibleCount).map((t) => (
           <span key={t} className={`${chip} ${tagClass(t)}`}>
             {t}
@@ -2173,8 +2184,8 @@ function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
       <div className="flex flex-1 flex-col gap-3 p-5">
         <h3 className="text-2xl font-bold tracking-tight ap-text-main">{pet.name}</h3>
 
-        {/* Теги — одной строкой; если идёт сбор, под ними мини-полоска сбора */}
-        <TagRow tags={tags} />
+        {/* Без сбора теги занимают до трёх рядов; если идёт сбор — одна строка и мини-полоска сбора под ней */}
+        <TagRow tags={tags} maxRows={hasFundraiser ? 1 : 3} />
 
         {hasFundraiser && (
           <CardFundraiser collected={pet.fundraising_collected_kzt} goal={pet.fundraising_goal_kzt} purpose={pet.fundraising_purpose} />
