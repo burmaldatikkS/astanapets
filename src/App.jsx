@@ -2797,7 +2797,7 @@ function FaqItem({ item, open, onToggle, id }) {
 }
 
 function FaqSection() {
-  const [openIndex, setOpenIndex] = useState(0);
+  const [openIndex, setOpenIndex] = useState(-1); // все вопросы свёрнуты по умолчанию
   return (
     <section id="faq" className="ap-cream-block scroll-mt-20 border-t ap-line">
       <div className="mx-auto max-w-6xl px-4 py-14">
