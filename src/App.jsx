@@ -993,6 +993,8 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .ap-chip-idle:hover { background-color: #F3F1ED; border-color: #A8A090; color: #18181B; }
 .ap-chip-active { background-color: #606C38; border-color: #606C38; color: #FDFCFB; box-shadow: 0 4px 14px rgba(96, 108, 56, 0.2); }
 .ap-tab-idle { color: #3F3F46; }
+.ap-tab-on { color: #FDFCFB; }
+.ap-tab-slider { width: calc((100% - 0.75rem - 0.75rem) / 3); transition: transform 0.45s cubic-bezier(0.34, 1.3, 0.64, 1); }
 .ap-tab-idle:hover { background-color: #FDFCFB; color: #18181B; }
 
 /* ---------- Медовый песок #DDA15E и тёплая карамель #BC6C25 ---------- */
@@ -1085,6 +1087,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 @keyframes ap-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 
 @media (prefers-reduced-motion: reduce) {
+  .ap-tab-slider { transition: none; }
   .ap-backdrop, .ap-modal-panel, .ap-drawer-panel, .ap-toast, .ap-pop, .ap-float, .ap-float-slow, .ap-float-late { animation: none; }
   .ap-collapse { transition: none; }
 }
@@ -1132,6 +1135,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .ap-dark .ap-chip-idle, .ap-dark .ap-toggle-idle { background-color: #2B2926; color: #D6D1C9; border-color: #45413B; }
 .ap-dark .ap-chip-idle:hover, .ap-dark .ap-toggle-idle:hover { background-color: #34312D; border-color: #6A645A; color: #F5F3EF; }
 .ap-dark .ap-tab-idle { color: #B5AFA6; }
+.ap-dark .ap-tab-on { color: #F5F3EF; }
 .ap-dark .ap-tab-idle:hover { background-color: #2B2926; color: #F5F3EF; }
 
 /* Помощь и акценты: кораллово-терракотовый */
@@ -1259,8 +1263,15 @@ const SPECIES_TABS = [
 ];
 
 function SpeciesTabs({ value, onChange }) {
+  const index = Math.max(0, SPECIES_TABS.findIndex((t) => t.value === value));
   return (
-    <div role="tablist" aria-label="Вид животного" className="grid grid-cols-3 gap-1.5 rounded-2xl ap-sand-deep p-1.5">
+    <div role="tablist" aria-label="Вид животного" className="relative grid grid-cols-3 gap-1.5 rounded-2xl ap-sand-deep p-1.5">
+      {/* Плашка активной вкладки плавно переезжает между «Все / Собаки / Кошки» */}
+      <span
+        aria-hidden="true"
+        className="ap-btn-accent ap-tab-slider pointer-events-none absolute bottom-1.5 left-1.5 top-1.5 rounded-xl"
+        style={{ transform: `translateX(calc(${index} * (100% + 0.375rem)))` }}
+      />
       {SPECIES_TABS.map((tab) => {
         const active = value === tab.value;
         const Icon = tab.icon;
@@ -1271,13 +1282,11 @@ function SpeciesTabs({ value, onChange }) {
             role="tab"
             aria-selected={active}
             onClick={() => onChange(tab.value)}
-            className={`flex items-center justify-center gap-2 rounded-xl px-2 py-3 text-sm transition-all duration-300 sm:text-base ${
-              active
-                ? 'ap-btn-accent font-bold'
-                : 'ap-tab-idle font-semibold'
+            className={`relative z-10 flex items-center justify-center gap-2 rounded-xl px-2 py-3 text-sm transition-colors duration-300 sm:text-base ${
+              active ? 'ap-tab-on font-bold' : 'ap-tab-idle font-semibold'
             }`}
           >
-            <Icon className="h-5 w-5 shrink-0" />
+            <Icon className={`h-5 w-5 shrink-0 transition-transform duration-300 ${active ? 'scale-110' : ''}`} />
             <span className="truncate">{tab.label}</span>
           </button>
         );
