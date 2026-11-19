@@ -652,6 +652,7 @@ function pluralRu(n, forms) {
 }
 
 function formatAge(months) {
+  if (!months || months <= 0) return 'Возраст уточняется';
   if (months < 12) return `${months} ${pluralRu(months, ['месяц', 'месяца', 'месяцев'])}`;
   const years = Math.floor(months / 12);
   const rest = months % 12;
@@ -768,13 +769,85 @@ const TOGGLES = [
 // Сбор считается открытым, если цель задана и ещё не достигнута
 const hasOpenFundraising = (p) => p.fundraising_goal_kzt > 0 && p.fundraising_collected_kzt < p.fundraising_goal_kzt;
 
+/* ---------- Умный поиск ----------
+ * Для каждого питомца собирается виртуальная строка: кличка, порода, описание, приют, теги
+ * + русские синонимы служебных полей. Запрос разбивается на слова; питомец подходит,
+ * если в его строке есть КАЖДОЕ слово («спокойная кошка», «мальчик щенок»). Ё = Е.
+ * Окончания не мешают: «спокойная» найдёт тег «Спокойный», «привита» — «привит».
+ * Слова ищутся с начала слова, а не в середине («кот» не находит «который»).
+ * Слова о виде и поле («кошка», «пёс», «мальчик», «девочка») работают как точный фильтр,
+ * поэтому «кошка» не найдёт собаку, у которой в описании «ладит с кошками».
+ * «щенок / котёнок» — только для малышей до 1 года.
+ */
+const SPECIES_WORDS = {
+  dog: ['собака', 'собаки', 'собачка', 'пес', 'псы', 'песик', 'щенок', 'щенки', 'щенка'],
+  cat: ['кошка', 'кошки', 'кошечка', 'кот', 'коты', 'котик', 'котенок', 'котята', 'котенка'],
+};
+const SEX_WORDS = {
+  male: ['мальчик', 'мальчика', 'кобель', 'парень'],
+  female: ['девочка', 'девочку', 'сука'],
+};
+const BABY_WORDS = ['щенок', 'щенки', 'щенка', 'котенок', 'котята', 'котенка'];
+const keyOf = (map, word) => Object.keys(map).find((k) => map[k].includes(word));
+const normalizeSearch = (text) => String(text ?? '').toLowerCase().replace(/ё/g, 'е');
+
+function buildSearchIndex(p) {
+  const parts = [p.name, p.breed, p.description, p.shelter_name, String(p.character_tags ?? '').replace(/\|/g, ' ')];
+  const isBaby = p.age_months > 0 && p.age_months < 12;
+  if (p.species === 'dog') parts.push(`собака пес пёс${isBaby ? ' щенок' : ''}`);
+  if (p.species === 'cat') parts.push(`кошка кот${isBaby ? ' котёнок котенок' : ''}`);
+  if (p.sex === 'male') parts.push(p.species === 'dog' ? 'мальчик кобель парень' : 'мальчик парень');
+  if (p.sex === 'female') parts.push(p.species === 'dog' ? 'девочка сука' : 'девочка');
+  if (p.size === 'small') parts.push('маленький миниатюрный');
+  if (p.size === 'medium') parts.push('средний');
+  if (p.size === 'large') parts.push('крупный большой');
+  if (p.is_sterilized) parts.push('стерилизован стерилизована кастрирован');
+  if (p.is_vaccinated) parts.push('привит привита вакцинирован');
+  if (p.apartment_friendly) parts.push('квартира для квартиры');
+  if (p.good_with_kids === true || p.compat_kids === 'yes') parts.push('дети с детьми');
+  return normalizeSearch(parts.filter(Boolean).join(' '))
+    .split(/[^a-zа-я0-9]+/)
+    .filter(Boolean);
+}
+
+// Слово найдено, если с него (или с его основы без 1–2 букв окончания) начинается какое-то слово питомца.
+// Короткие слова (до 3 букв) должны совпасть целиком.
+function searchWordMatches(tokens, word) {
+  if (word.length <= 3) return tokens.includes(word);
+  const stems = [word];
+  if (word.length >= 6) stems.push(word.slice(0, -2));
+  if (word.length >= 5) stems.push(word.slice(0, -1));
+  return tokens.some((t) => stems.some((st) => t.startsWith(st)));
+}
+
+// Питомец подходит под поисковый запрос
+function matchesSearch(p, words) {
+  const rest = [];
+  for (const w of words) {
+    const species = keyOf(SPECIES_WORDS, w);
+    const sex = keyOf(SEX_WORDS, w);
+    if (species) {
+      if (p.species !== species) return false;
+      if (BABY_WORDS.includes(w) && !(p.age_months > 0 && p.age_months < 12)) return false;
+    } else if (sex) {
+      if (p.sex !== sex) return false;
+    } else {
+      rest.push(w);
+    }
+  }
+  if (rest.length === 0) return true;
+  const tokens = buildSearchIndex(p);
+  return rest.every((w) => searchWordMatches(tokens, w));
+}
+
 function applyFilters(pets, f) {
-  const q = f.query.trim().toLowerCase();
+  const words = normalizeSearch(f.query.trim()).split(/\s+/).filter(Boolean);
   return pets.filter((p) => {
     if (p.status && p.status !== 'available') return false;
-    if (q && !`${p.name} ${p.description} ${p.character_tags}`.toLowerCase().includes(q)) return false;
+    if (words.length > 0 && !matchesSearch(p, words)) return false;
     if (f.species !== 'all' && p.species !== f.species) return false;
     if (f.sex !== 'all' && p.sex !== f.sex) return false;
+    if (f.age !== 'all' && !(p.age_months > 0)) return false; // возраст не указан — не попадает в возрастные фильтры
     if (f.age === 'baby' && !(p.age_months < 12)) return false;
     if (f.age === 'young' && !(p.age_months >= 12 && p.age_months <= 36)) return false;
     if (f.age === 'adult' && !(p.age_months > 36)) return false;
@@ -939,6 +1012,10 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 /* ---------- Фото ---------- */
 .ap-photo { aspect-ratio: 4 / 3; }
 .ap-portrait { aspect-ratio: 4 / 5; }
+.ap-neg { color: #C85A32; }                            /* отрицательные статусы: тёплая терракота вместо красного */
+.ap-neg-soft { background-color: rgba(249, 115, 22, 0.15); }  /* orange-500 / 15% */
+.ap-badge-verified { background-color: #D1FAE5; color: #065F46; border-color: #A7F3D0; }   /* emerald-100 / 800 / 200 */
+.ap-badge-shelter { background-color: #F3F1ED; color: #27272A; border-color: #E4E4E7; }
 .ap-chip-badge { background-color: rgba(253, 252, 251, 0.95); color: #18181B; border-color: #E4E4E7; box-shadow: 0 1px 2px rgba(24, 24, 27, 0.08); }
 .ap-photo-count { background-color: rgba(24, 24, 27, 0.6); color: #FDFCFB; }
 .ap-thumb-active { box-shadow: 0 0 0 2px #FDFCFB, 0 0 0 4px #606C38; opacity: 1; }
@@ -1048,6 +1125,10 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 
 .ap-dark .ap-tag-trait { background-color: rgba(163, 179, 107, 0.18); color: #CBD69A; }
 .ap-dark .ap-tag-skill { background-color: rgba(221, 161, 94, 0.18); color: #EBC08E; }
+.ap-dark .ap-neg { color: #E87A54; }
+.ap-dark .ap-neg-soft { background-color: rgba(249, 115, 22, 0.18); }
+.ap-dark .ap-badge-verified { background-color: rgba(2, 44, 34, 0.8); color: #6EE7B7; border-color: rgba(6, 95, 70, 0.6); }
+.ap-dark .ap-badge-shelter { background-color: #2B2926; color: #E5E0D8; border-color: #3E3B36; }
 .ap-dark .ap-chip-badge { background-color: rgba(31, 30, 27, 0.95); color: #F5F3EF; border-color: #3E3B36; box-shadow: 0 4px 10px rgba(12, 11, 10, 0.35); }
 .ap-dark .ap-thumb-active { box-shadow: 0 0 0 2px #1A1917, 0 0 0 4px #8A9A52; }
 
@@ -1340,6 +1421,20 @@ function AppLogo({ className = 'h-10 w-10' }) {
 }
 
 /* ---------- Боковая шторка: тема, связь с автором, навигация ---------- */
+/* ---------- Иконки мессенджеров ----------
+ * Положите официальные SVG из брендбуков Telegram и WhatsApp в папку public/icons/
+ * (telegram.svg и whatsapp.svg, белые/монохромные версии для цветных кнопок).
+ * Пока файлов нет — показывается стандартная иконка lucide-react.
+ */
+function BrandIcon({ src, fallback: Fallback, className = 'h-5 w-5' }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <Fallback className={className} />;
+  return <img src={src} alt="" aria-hidden="true" className={`${className} object-contain`} onError={() => setFailed(true)} />;
+}
+
+const TELEGRAM_ICON_SRC = '/icons/telegram.svg';
+const WHATSAPP_ICON_SRC = '/icons/whatsapp.svg';
+
 function SideDrawer({ open, onClose, theme, onThemeChange }) {
   useEffect(() => {
     if (!open) return undefined;
@@ -1414,7 +1509,7 @@ function SideDrawer({ open, onClose, theme, onThemeChange }) {
 
           <section className="ap-card rounded-2xl p-5">
             <span className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl ap-btn-telegram">
-              <Send className="h-5 w-5" />
+              <BrandIcon src={TELEGRAM_ICON_SRC} fallback={Send} className="h-5 w-5" />
             </span>
             <p className="text-base font-bold leading-snug tracking-tight ap-text-main">Есть вопросы, идеи или хотите добавить приют Астаны?</p>
             <p className="mt-1 text-sm ap-text-muted">Напишите автору проекта — отвечу в Telegram.</p>
@@ -1423,7 +1518,7 @@ function SideDrawer({ open, onClose, theme, onThemeChange }) {
               onClick={openAuthorTelegram}
               className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl ap-btn-telegram px-5 py-3.5 text-base font-bold transition-all duration-300 active:scale-95"
             >
-              <Send className="h-5 w-5" />
+              <BrandIcon src={TELEGRAM_ICON_SRC} fallback={Send} className="h-5 w-5" />
               Написать в Telegram
             </button>
             <p className="mt-2 text-center text-sm font-semibold ap-text-soft">@{AUTHOR_TELEGRAM_USERNAME}</p>
@@ -1839,11 +1934,25 @@ function Filters({ filters, setFilter, reset, resultsCount }) {
   );
 }
 
-// «Я Живой» → Приют «Я Живой» (не дублируем слово и кавычки, если они уже есть)
-function shelterLabel(name) {
-  const n = cleanText(name);
-  if (/^приют/i.test(n)) return n;
-  return /^[«"]/.test(n) ? `Приют ${n}` : `Приют «${n}»`;
+// Два бейджа рядом: «Проверен» и «из: [Приют]»
+function ShelterBadges({ pet, className = '' }) {
+  if (!pet.shelter_verified && !pet.shelter_name) return null;
+  return (
+    <div className={`flex flex-wrap items-center gap-2 ${className}`}>
+      {pet.shelter_verified && (
+        <span className="ap-badge-verified inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold">
+          <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+          Проверен
+        </span>
+      )}
+      {pet.shelter_name && (
+        <span className="ap-badge-shelter inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold">
+          <Home className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">из: {pet.shelter_name}</span>
+        </span>
+      )}
+    </div>
+  );
 }
 
 function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
@@ -1862,12 +1971,7 @@ function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
         </button>
         <div className="ap-photo-fade pointer-events-none absolute inset-x-0 top-0 h-2/3" />
         <div className="pointer-events-none absolute left-3 right-16 top-3 flex flex-col items-start gap-1.5">
-          {pet.shelter_verified && (
-            <span className="inline-flex items-center gap-1 rounded-full ap-sage px-2.5 py-1 text-xs font-bold ap-shadow-soft">
-              <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
-              Проверенный
-            </span>
-          )}
+          <ShelterBadges pet={pet} className="max-w-full" />
           <span className="ap-chip-badge inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold">
             <Cpu className={`h-3.5 w-3.5 shrink-0 ${pet.chip_number ? 'text-emerald-600' : 'ap-text-accent'}`} />
             {pet.chip_number ? `Чип №${pet.chip_number}` : 'Чипирование при передаче'}
@@ -1888,12 +1992,6 @@ function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
           <p className="mt-0.5 text-sm font-semibold ap-text-soft">
             {SEX_LABEL[pet.sex]} · {formatAge(pet.age_months)} · {SIZE_LABEL[pet.size]}
           </p>
-          {pet.shelter_name && (
-            <p className="mt-1.5 flex items-center gap-1.5 text-sm font-semibold text-zinc-600">
-              <Home className="h-4 w-4 shrink-0" />
-              <span className="min-w-0 truncate">{shelterLabel(pet.shelter_name)}</span>
-            </p>
-          )}
         </div>
 
         {tags.length > 0 && (
@@ -1941,10 +2039,10 @@ function DetailSection({ title, children }) {
   );
 }
 
-// Положительный статус — изумрудный, отрицательный — насыщенный красный
+// Положительный статус — изумрудный, отрицательный — тёплый терракотово-оранжевый
 const STATUS_ICON = {
   yes: { Icon: Check, icon: 'text-emerald-600', text: 'text-emerald-700' },
-  no: { Icon: X, icon: 'text-rose-600', text: 'text-rose-600' },
+  no: { Icon: X, icon: 'ap-neg', text: 'ap-neg' },
 };
 
 // Строка характеристики: иконка + подпись слева, значение (и при необходимости статус) справа
@@ -1968,7 +2066,7 @@ function DetailRow({ icon: Icon, glyph, label, value, status }) {
 
 const COMPAT_STATUS = {
   yes: { Icon: Check, icon: 'text-emerald-600', circle: 'bg-emerald-100', label: 'text-emerald-700 font-bold', text: 'Да' },
-  no: { Icon: X, icon: 'text-rose-600', circle: 'bg-rose-100', label: 'text-rose-600 font-bold', text: 'Нет' },
+  no: { Icon: X, icon: 'ap-neg', circle: 'ap-neg-soft', label: 'ap-neg font-bold', text: 'Нет' },
   unknown: { Icon: HelpCircle, icon: 'text-zinc-500', circle: 'bg-zinc-100', label: 'text-zinc-600 font-semibold', text: 'Неизвестно' },
 };
 
@@ -2126,12 +2224,7 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
   return (
     <Modal open={!!pet} onClose={onClose} labelledBy="pet-modal-title">
       <div className="relative flex min-h-16 items-center px-4 pr-28 pt-3 sm:px-6">
-        {pet.shelter_verified && (
-          <span className="inline-flex items-center gap-1 rounded-full ap-sage px-3 py-1 text-xs font-bold">
-            <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
-            Проверен: {pet.shelter_name}
-          </span>
-        )}
+        <ShelterBadges pet={pet} />
         <FavoriteButton active={isFavorite} onToggle={() => onToggleFavorite(pet)} className="absolute right-16 top-3" />
       </div>
 
@@ -2165,7 +2258,7 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
 
         <DetailSection title="Порода и внешность">
           <DetailRow icon={Tag} label="Порода" value={pet.breed} />
-          <DetailRow icon={Calendar} label="Возраст" value={formatAge(pet.age_months)} />
+          <DetailRow icon={Calendar} label="Возраст" value={pet.age_months > 0 ? formatAge(pet.age_months) : 'Уточняется'} />
           <DetailRow glyph={pet.sex === 'female' ? '♀' : '♂'} label="Пол" value={SEX_LABEL[pet.sex]} />
           <DetailRow icon={Ruler} label="Размер" value={SIZE_LABEL[pet.size]} />
         </DetailSection>
@@ -2276,7 +2369,7 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
                 onClick={() => trackEvent('whatsapp_clicked', base)}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-2xl ap-btn-whatsapp px-5 py-3.5 text-base font-bold transition-all duration-300 active:scale-95"
               >
-                <MessageCircle className="h-5 w-5" />
+                <BrandIcon src={WHATSAPP_ICON_SRC} fallback={MessageCircle} className="h-5 w-5" />
                 Написать в WhatsApp
               </a>
               <div className="flex items-center gap-2">
