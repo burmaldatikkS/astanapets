@@ -30,6 +30,13 @@ import {
   Home,
   Smile,
   HeartHandshake,
+  HelpCircle,
+  Calendar,
+  Ruler,
+  Tag,
+  Award,
+  Bug,
+  FileText,
 } from 'lucide-react';
 
 /* =====================================================================
@@ -82,7 +89,9 @@ export function trackEvent(eventName, payload = {}) {
  * 2. ДАННЫЕ
  * ---------------------------------------------------------------------
  * Структура объекта = одна строка Google Таблицы / таблицы Supabase `pets`.
- * Все поля «плоские»: строки, числа, булевы. Списки (теги) — строка через «|»,
+ * Все поля «плоские»: строки, числа, булевы.
+ * Совместимость (good_with_kids / good_with_dogs / good_with_cats / good_with_animals)
+ * принимает YES / NO / UNKNOWN, а также TRUE / FALSE; пустая ячейка = «Неизвестно». Списки (теги) — строка через «|»,
  * как удобно хранить в ячейке таблицы.
  *
  * Столбцы таблицы:
@@ -90,7 +99,7 @@ export function trackEvent(eventName, payload = {}) {
  * character_tags | shelter_name | shelter_verified | shelter_instagram | reports_url |
  * curator_name | curator_phone | curator_whatsapp | kaspi_phone | kaspi_link |
  * chip_number | is_registered | is_vaccinated | is_sterilized | is_parasite_treated |
- * good_with_kids | good_with_animals | apartment_friendly | beginner_friendly | fundraising_goal_kzt | fundraising_collected_kzt |
+ * good_with_kids | good_with_dogs | good_with_cats | good_with_animals | breed | house_trained | apartment_friendly | beginner_friendly | fundraising_goal_kzt | fundraising_collected_kzt |
  * fundraising_purpose | donation_usage | created_at
  *
  * ⚠️ ВСЕ ДАННЫЕ НИЖЕ ТЕСТОВЫЕ: телефоны, номера чипов, реквизиты и ссылки вымышлены.
@@ -126,6 +135,10 @@ const MOCK_PETS = [
     is_parasite_treated: true,
     good_with_kids: true,
     good_with_animals: false,
+    good_with_dogs: 'NO',
+    good_with_cats: 'UNKNOWN',
+    breed: 'Метис овчарки',
+    house_trained: true,
     apartment_friendly: false,
     beginner_friendly: true,
     fundraising_goal_kzt: 60000,
@@ -162,6 +175,10 @@ const MOCK_PETS = [
     is_parasite_treated: true,
     good_with_kids: true,
     good_with_animals: true,
+    good_with_dogs: 'UNKNOWN',
+    good_with_cats: 'YES',
+    breed: 'Домашняя короткошёрстная',
+    house_trained: true,
     apartment_friendly: true,
     beginner_friendly: true,
     fundraising_goal_kzt: 35000,
@@ -198,6 +215,10 @@ const MOCK_PETS = [
     is_parasite_treated: true,
     good_with_kids: true,
     good_with_animals: true,
+    good_with_dogs: 'YES',
+    good_with_cats: 'YES',
+    breed: 'Метис',
+    house_trained: false,
     apartment_friendly: true,
     beginner_friendly: false,
     fundraising_goal_kzt: 0,
@@ -234,6 +255,10 @@ const MOCK_PETS = [
     is_parasite_treated: true,
     good_with_kids: false,
     good_with_animals: true,
+    good_with_dogs: 'UNKNOWN',
+    good_with_cats: 'YES',
+    breed: 'Домашний длинношёрстный',
+    house_trained: true,
     apartment_friendly: true,
     beginner_friendly: true,
     fundraising_goal_kzt: 25000,
@@ -270,6 +295,10 @@ const MOCK_PETS = [
     is_parasite_treated: true,
     good_with_kids: true,
     good_with_animals: true,
+    good_with_dogs: 'YES',
+    good_with_cats: 'YES',
+    breed: 'Метис той-терьера',
+    house_trained: true,
     apartment_friendly: true,
     beginner_friendly: true,
     fundraising_goal_kzt: 0,
@@ -304,8 +333,12 @@ const MOCK_PETS = [
     is_vaccinated: true,
     is_sterilized: true,
     is_parasite_treated: false,
-    good_with_kids: true,
+    good_with_kids: 'UNKNOWN',
     good_with_animals: false,
+    good_with_dogs: 'UNKNOWN',
+    good_with_cats: 'NO',
+    breed: 'Домашняя короткошёрстная',
+    house_trained: true,
     apartment_friendly: true,
     beginner_friendly: false,
     fundraising_goal_kzt: 40000,
@@ -440,9 +473,21 @@ function shelterFromPet(p) {
 }
 
 // Приводит строку из таблицы к нужным типам (в Google Таблице всё приходит строками)
+// Совместимость: YES / NO / UNKNOWN (а также TRUE / FALSE, да / нет) → 'yes' | 'no' | 'unknown'
+function toTriState(v) {
+  if (v === true || v === 1) return 'yes';
+  if (v === false || v === 0) return 'no';
+  const t = String(v ?? '').trim().toLowerCase();
+  if (['yes', 'true', '1', 'да'].includes(t)) return 'yes';
+  if (['no', 'false', '0', 'нет'].includes(t)) return 'no';
+  return 'unknown';
+}
+
 function normalizePet(row) {
   const bool = (v) => v === true || v === 'TRUE' || v === 'true' || v === '1' || v === 1;
   const num = (v) => Number(String(v ?? '0').replace(/\s/g, '')) || 0;
+  const compatKids = toTriState(row.good_with_kids);
+  const compatAnimals = toTriState(row.good_with_animals);
   return {
     ...row,
     age_months: num(row.age_months),
@@ -451,8 +496,16 @@ function normalizePet(row) {
     is_vaccinated: bool(row.is_vaccinated),
     is_sterilized: bool(row.is_sterilized),
     is_parasite_treated: bool(row.is_parasite_treated),
-    good_with_kids: bool(row.good_with_kids),
-    good_with_animals: bool(row.good_with_animals),
+    // Булевы флаги остаются для фильтров: true только при явном «да»
+    good_with_kids: compatKids === 'yes',
+    good_with_animals: compatAnimals === 'yes',
+    // Три состояния — для блока «Совместимость» в карточке
+    compat_kids: compatKids,
+    compat_dogs: toTriState(row.good_with_dogs),
+    compat_cats: toTriState(row.good_with_cats),
+    compat_animals: compatAnimals,
+    breed: String(row.breed ?? '').trim() || 'Домашний любимец / Метис',
+    house_trained: bool(row.house_trained),
     apartment_friendly: bool(row.apartment_friendly),
     beginner_friendly: bool(row.beginner_friendly),
     fundraising_goal_kzt: num(row.fundraising_goal_kzt),
@@ -636,6 +689,16 @@ const GLOBAL_CSS = `
   font-family: 'Nunito', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 .ap-root { background-color: #FAF7F2; color: #2C2A29; }
+
+/* Защита от горизонтального скролла на телефонах.
+   overflow-x: clip режет лишнее так же, как hidden, но не ломает «липкую» шапку (position: sticky).
+   max-width: 100%, а не 100vw: на компьютере 100vw включает ширину полосы прокрутки и сам даёт сдвиг. */
+html, body, #root { max-width: 100%; overflow-x: hidden; }
+.ap-clip-x { overflow-x: hidden; }
+@supports (overflow-x: clip) {
+  html, body, #root { overflow-x: clip; }
+  .ap-clip-x { overflow-x: clip; }
+}
 
 /* ---------- Текст ---------- */
 .ap-text-main { color: #2C2A29; }
@@ -1136,35 +1199,37 @@ function HeroCollage({ pets, onOpenPet }) {
 function MobilePreviewSlider({ pets, onOpenPet }) {
   if (!pets.length) return null;
   return (
-    <div className="lg:hidden">
+    <div className="w-full min-w-0 max-w-full lg:hidden">
       <div className="mb-3 flex items-center justify-between">
         <p className="text-sm font-extrabold ap-text-main">Ждут знакомства</p>
         <p className="flex items-center gap-1 text-xs font-semibold text-stone-500">
           листайте <ChevronRight className="h-3.5 w-3.5" />
         </p>
       </div>
-      <div className="ap-no-scrollbar -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2">
-        {pets.map((pet, i) => (
-          <button
-            key={pet.id}
-            type="button"
-            onClick={() => onOpenPet(pet)}
-            className="ap-card group w-36 shrink-0 snap-start rounded-3xl p-1.5 text-left transition-all duration-300 active:scale-95"
-          >
-            <div className="ap-portrait relative overflow-hidden rounded-2xl ap-sand-deep">
-              <PhotoImg src={pet.photo_url} alt={pet.name} eager={i < 2} className="h-full w-full object-cover" />
-              <div className="ap-photo-fade-bottom absolute inset-x-0 bottom-0 h-1/2" />
-              {i === 0 && (
-                <span className="absolute left-2 top-2 rounded-full ap-sage px-2 py-0.5 text-xs font-bold ap-shadow-soft">Спасён в Астане</span>
-              )}
-              {i === 1 && <span className="absolute left-2 top-2 rounded-full ap-btn-accent px-2 py-0.5 text-xs font-bold">Ищет семью</span>}
-              <div className="absolute inset-x-2 bottom-2 text-white">
-                <p className="text-base font-extrabold leading-tight">{pet.name}</p>
-                <p className="text-xs font-semibold opacity-90">{formatAge(pet.age_months)}</p>
+      <div className="ap-no-scrollbar w-full max-w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain">
+        <div className="flex w-max gap-3 pb-2">
+          {pets.map((pet, i) => (
+            <button
+              key={pet.id}
+              type="button"
+              onClick={() => onOpenPet(pet)}
+              className="ap-card group w-36 shrink-0 snap-start rounded-3xl p-1.5 text-left transition-all duration-300 active:scale-95"
+            >
+              <div className="ap-portrait relative overflow-hidden rounded-2xl ap-sand-deep">
+                <PhotoImg src={pet.photo_url} alt={pet.name} eager={i < 2} className="h-full w-full object-cover" />
+                <div className="ap-photo-fade-bottom absolute inset-x-0 bottom-0 h-1/2" />
+                {i === 0 && (
+                  <span className="absolute left-2 top-2 rounded-full ap-sage px-2 py-0.5 text-xs font-bold ap-shadow-soft">Спасён в Астане</span>
+                )}
+                {i === 1 && <span className="absolute left-2 top-2 rounded-full ap-btn-accent px-2 py-0.5 text-xs font-bold">Ищет семью</span>}
+                <div className="absolute inset-x-2 bottom-2 text-white">
+                  <p className="text-base font-extrabold leading-tight">{pet.name}</p>
+                  <p className="text-xs font-semibold opacity-90">{formatAge(pet.age_months)}</p>
+                </div>
               </div>
-            </div>
-          </button>
-        ))}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -1177,24 +1242,24 @@ function Hero({ petsCount, sheltersCount, previewPets, onOpenPet }) {
   };
 
   return (
-    <section id="top" className="relative overflow-hidden">
+    <section id="top" className="relative w-full overflow-hidden">
       <div className="ap-hero-glow pointer-events-none absolute inset-0" />
-      <div className="relative mx-auto grid max-w-6xl items-center gap-8 px-4 pb-6 pt-8 sm:pt-12 lg:grid-cols-2 lg:gap-12 lg:pb-16 lg:pt-16">
-        <div>
+      <div className="relative mx-auto grid w-full min-w-0 max-w-6xl grid-cols-1 items-center gap-8 px-4 pb-6 pt-8 sm:pt-12 lg:grid-cols-2 lg:gap-12 lg:pb-16 lg:pt-16">
+        <div className="min-w-0">
           <span className="mb-4 inline-flex items-center gap-1.5 rounded-full ap-accent-soft px-3 py-1.5 text-xs font-bold ap-text-accent">
             <Sparkles className="h-3.5 w-3.5" />
             Приюты Астаны — в одном месте
           </span>
-          <h1 className="text-3xl font-extrabold leading-tight tracking-normal ap-text-main sm:text-4xl lg:text-5xl">
+          <h1 className="break-words text-2xl font-extrabold leading-tight tracking-normal ap-text-main sm:text-4xl lg:text-5xl">
             Найди друга из приюта в Астане и <span className="ap-text-accent">помоги тем, кто ещё ждёт дом</span>
           </h1>
 
-          <div className="ap-card mt-6 inline-flex items-center gap-3 rounded-2xl border border-stone-200/70 px-4 py-3 text-sm text-stone-600">
-            <span className="relative flex h-3 w-3 shrink-0">
+          <div className="ap-card mt-6 flex w-full max-w-full items-start gap-3 rounded-2xl border border-stone-200/70 px-4 py-3 text-sm text-stone-600 sm:inline-flex sm:w-auto sm:items-center">
+            <span className="relative mt-1 flex h-3 w-3 shrink-0 sm:mt-0">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full ap-sage-fill opacity-75" />
               <span className="relative inline-flex h-3 w-3 rounded-full ap-sage-fill" />
             </span>
-            <span className="font-semibold">
+            <span className="min-w-0 break-words font-semibold leading-snug">
               Сейчас ищут дом: <b className="font-extrabold ap-text-main">{petsCount}</b> {pluralRu(petsCount, ['питомец', 'питомца', 'питомцев'])} из{' '}
               <b className="font-extrabold ap-text-main">{sheltersCount}</b>{' '}
               {pluralRu(sheltersCount, ['проверенного приюта', 'проверенных приютов', 'проверенных приютов'])}
@@ -1236,7 +1301,7 @@ function Hero({ petsCount, sheltersCount, previewPets, onOpenPet }) {
           </ul>
         </div>
 
-        <div className="hidden lg:block">
+        <div className="hidden min-w-0 lg:block">
           <HeroCollage pets={previewPets} onOpenPet={onOpenPet} />
         </div>
 
@@ -1430,18 +1495,60 @@ function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
   );
 }
 
-function StatusRow({ label, ok, okText = 'Да', noText = 'Нет', extra }) {
+/* ---------- Детальная карточка: секции в стиле профиля Petfinder ---------- */
+
+function DetailSection({ title, children }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3">
-      <span className="text-sm font-semibold text-stone-600">{label}</span>
+    <section className="border-t border-stone-200/80 pt-5">
+      <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-stone-400">{title}</h3>
+      <div className="divide-y divide-stone-200/80">{children}</div>
+    </section>
+  );
+}
+
+const STATUS_ICON = {
+  yes: { Icon: Check, cls: 'text-emerald-600' },
+  no: { Icon: X, cls: 'text-rose-500' },
+  neutral: { Icon: Minus, cls: 'text-stone-400' },
+};
+
+// Строка характеристики: иконка + подпись слева, значение (и при необходимости статус) справа
+function DetailRow({ icon: Icon, glyph, label, value, status }) {
+  const st = status ? STATUS_ICON[status] : null;
+  return (
+    <div className="flex items-center justify-between gap-3 py-3">
+      <span className="flex min-w-0 items-center gap-3 text-sm font-semibold text-stone-600">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ap-sand text-stone-500">
+          {Icon ? <Icon className="h-4 w-4" /> : <span className="text-base font-extrabold leading-none">{glyph}</span>}
+        </span>
+        <span className="min-w-0">{label}</span>
+      </span>
       <span
-        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${
-          ok ? 'ap-sage' : 'ap-sand-deep text-stone-600'
+        className={`flex shrink-0 items-center gap-1.5 text-right text-sm font-bold ${
+          status === 'neutral' ? 'text-stone-500' : 'ap-text-main'
         }`}
       >
-        {ok ? <Check className="h-3.5 w-3.5" /> : <Minus className="h-3.5 w-3.5" />}
-        {ok ? extra || okText : noText}
+        {st && <st.Icon className={`h-4 w-4 ${st.cls}`} />}
+        {value}
       </span>
+    </div>
+  );
+}
+
+const COMPAT_STATUS = {
+  yes: { Icon: Check, cls: 'text-emerald-600', text: 'Да' },
+  no: { Icon: X, cls: 'text-rose-500', text: 'Нет' },
+  unknown: { Icon: HelpCircle, cls: 'text-stone-400', text: 'Неизвестно' },
+};
+
+function CompatTile({ icon: Icon, label, value }) {
+  const st = COMPAT_STATUS[value] || COMPAT_STATUS.unknown;
+  return (
+    <div className="relative rounded-2xl border border-stone-200 bg-white p-3.5 text-center">
+      <st.Icon className={`absolute right-2.5 top-2.5 h-4 w-4 ${st.cls}`} aria-hidden="true" />
+      <Icon className="mx-auto mt-1 h-7 w-7 text-stone-600" aria-hidden="true" />
+      <p className="mt-2 text-sm font-bold ap-text-main">{label}</p>
+      <p className={`mt-0.5 text-xs font-bold ${st.cls}`}>{st.text}</p>
     </div>
   );
 }
@@ -1505,29 +1612,81 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
         <section>
           <h3 className="mb-2 text-lg font-extrabold ap-text-main">История и характер</h3>
           <p className="ap-prose text-base text-stone-600">{pet.description}</p>
-          <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
-            <span className={`rounded-full px-3 py-1 ${pet.good_with_kids ? 'ap-tag-social' : 'ap-tag-care'}`}>
-              {pet.good_with_kids ? '✓ Ладит с детьми' : 'Лучше без маленьких детей'}
-            </span>
-            <span className={`rounded-full px-3 py-1 ${pet.good_with_animals ? 'ap-tag-social' : 'ap-tag-care'}`}>
-              {pet.good_with_animals ? '✓ Ладит с животными' : 'Лучше единственным питомцем'}
-            </span>
-          </div>
         </section>
 
-        <section>
-          <h3 className="mb-2 text-lg font-extrabold ap-text-main">Здоровье и документы</h3>
-          <div className="divide-y divide-stone-200/70 overflow-hidden rounded-2xl border border-stone-200/70 ap-sand">
-            <StatusRow label="Чип" ok={!!pet.chip_number} extra={`№${pet.chip_number}`} noText="При передаче" />
-            <StatusRow label="Регистрация в базе учёта" ok={pet.is_registered} okText="Зарегистрирован" noText="При передаче" />
-            <StatusRow label="Вакцинация" ok={pet.is_vaccinated} okText="Привит" />
-            <StatusRow label="Стерилизация / кастрация" ok={pet.is_sterilized} okText="Выполнена" noText="Пока нет" />
-            <StatusRow label="Обработка от паразитов" ok={pet.is_parasite_treated} okText="Выполнена" noText="Пока нет" />
-          </div>
-          <p className="mt-2 flex items-start gap-1.5 text-xs font-medium text-stone-500">
+        <DetailSection title="Порода и внешность">
+          <DetailRow icon={Tag} label="Порода" value={pet.breed} />
+          <DetailRow icon={Calendar} label="Возраст" value={formatAge(pet.age_months)} />
+          <DetailRow glyph={pet.sex === 'female' ? '♀' : '♂'} label="Пол" value={SEX_LABEL[pet.sex]} />
+          <DetailRow icon={Ruler} label="Размер" value={SIZE_LABEL[pet.size]} />
+        </DetailSection>
+
+        <DetailSection title="Поведение и быт">
+          <DetailRow
+            icon={Award}
+            label={pet.species === 'cat' ? 'Приучение к лотку' : 'Приучение к выгулу'}
+            status={pet.house_trained ? 'yes' : 'no'}
+            value={pet.house_trained ? 'Да' : 'Пока нет, учится'}
+          />
+          <DetailRow
+            icon={Home}
+            label="Подходит для квартиры"
+            status={pet.apartment_friendly ? 'yes' : 'neutral'}
+            value={pet.apartment_friendly ? 'Да' : 'Лучше частный дом'}
+          />
+          <DetailRow
+            icon={Smile}
+            label="Подойдёт новичку"
+            status={pet.beginner_friendly ? 'yes' : 'neutral'}
+            value={pet.beginner_friendly ? 'Да' : 'Нужен опыт'}
+          />
+        </DetailSection>
+
+        <DetailSection title="Здоровье и документы (РК)">
+          <DetailRow
+            icon={Scissors}
+            label="Стерилизация / кастрация"
+            status={pet.is_sterilized ? 'yes' : 'neutral'}
+            value={pet.is_sterilized ? 'Выполнена' : 'Пока нет'}
+          />
+          <DetailRow
+            icon={Syringe}
+            label="Вакцинация"
+            status={pet.is_vaccinated ? 'yes' : 'neutral'}
+            value={pet.is_vaccinated ? 'По возрасту' : 'Пока нет'}
+          />
+          <DetailRow
+            icon={Bug}
+            label="Обработка от паразитов"
+            status={pet.is_parasite_treated ? 'yes' : 'neutral'}
+            value={pet.is_parasite_treated ? 'Выполнена' : 'Пока нет'}
+          />
+          <DetailRow
+            icon={Cpu}
+            label="Чип"
+            status={pet.chip_number ? 'yes' : 'neutral'}
+            value={pet.chip_number ? `№${pet.chip_number}` : 'При передаче'}
+          />
+          <DetailRow
+            icon={FileText}
+            label="Регистрация в базе учёта"
+            status={pet.is_registered ? 'yes' : 'neutral'}
+            value={pet.is_registered ? 'Да' : 'При передаче'}
+          />
+          <p className="flex items-start gap-1.5 pt-3 text-xs font-medium text-stone-500">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             По правилам ответственного обращения с животными в РК питомец должен быть идентифицирован (чип) и зарегистрирован на нового владельца.
           </p>
+        </DetailSection>
+
+        <section className="border-t border-stone-200/80 pt-5">
+          <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-stone-400">Совместимость: {pet.name}</h3>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <CompatTile icon={Baby} label="Дети" value={pet.compat_kids} />
+            <CompatTile icon={Dog} label="Собаки" value={pet.compat_dogs} />
+            <CompatTile icon={Cat} label="Кошки" value={pet.compat_cats} />
+            <CompatTile icon={PawPrint} label="Другие животные" value={pet.compat_animals} />
+          </div>
         </section>
 
         <ProgressBar collected={pet.fundraising_collected_kzt} goal={pet.fundraising_goal_kzt} purpose={pet.fundraising_purpose} />
@@ -1905,7 +2064,7 @@ export default function App() {
   };
 
   return (
-    <div className="ap-root min-h-screen ap-text-main antialiased">
+    <div className="ap-root ap-clip-x w-full min-h-screen ap-text-main antialiased">
       <GlobalStyles />
       <Header favoritesCount={favorites.length} favoritesOnly={favoritesOnly} onToggleFavorites={toggleFavoritesView} />
       <main>
