@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import {
   PawPrint,
   ShieldCheck,
@@ -37,6 +37,8 @@ import {
   Award,
   Bug,
   FileText,
+  Camera,
+  ChevronLeft,
 } from 'lucide-react';
 
 /* =====================================================================
@@ -90,6 +92,7 @@ export function trackEvent(eventName, payload = {}) {
  * ---------------------------------------------------------------------
  * Структура объекта = одна строка Google Таблицы / таблицы Supabase `pets`.
  * Все поля «плоские»: строки, числа, булевы.
+ * photo_url может содержать несколько ссылок через «|» (или с новой строки) — первая станет обложкой.
  * Совместимость (good_with_kids / good_with_dogs / good_with_cats / good_with_animals)
  * принимает YES / NO / UNKNOWN, а также TRUE / FALSE; пустая ячейка = «Неизвестно». Списки (теги) — строка через «|»,
  * как удобно хранить в ячейке таблицы.
@@ -115,7 +118,13 @@ const MOCK_PETS = [
     sex: 'male',
     age_months: 36,
     size: 'large',
-    photo_url: 'https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=800&q=80',
+    // Несколько фото через «|» — так же, как в ячейке Google Таблицы
+    photo_url: [
+      'https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1537151608828-ea2b11777ee8?auto=format&fit=crop&w=800&h=1100&q=80',
+      'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=800&q=80',
+    ].join('|'),
     description:
       'Барона нашли зимой у трассы на Караганду — он сидел у остановки и ждал, что за ним вернутся. Оказался очень воспитанным: знает команды «сидеть», «рядом», спокойно ходит на поводке. Обожает долгие прогулки по набережной Есиля и не тянет. Подойдёт активной семье с частным домом или просторной квартирой.',
     character_tags: 'Спокойный|Знает поводок|Привит|Любит гулять',
@@ -155,7 +164,12 @@ const MOCK_PETS = [
     sex: 'female',
     age_months: 8,
     size: 'small',
-    photo_url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=800&q=80',
+    // Несколько фото через «|» — так же, как в ячейке Google Таблицы
+    photo_url: [
+      'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=800&h=1100&q=80',
+      'https://images.unsplash.com/photo-1529778873920-4da4926a72c2?auto=format&fit=crop&w=800&q=80',
+    ].join('|'),
     description:
       'Мусю принесли волонтёры из подвала на Левом берегу вместе с братьями — их уже разобрали, а она всё ждёт. Ласковая, мурчит при первом прикосновении, приучена к лотку и когтеточке. Немного стесняется в первые дни, но быстро становится «хвостиком» хозяина.',
     character_tags: 'Ласковая|Приучена к лотку|Игривая',
@@ -235,7 +249,12 @@ const MOCK_PETS = [
     sex: 'male',
     age_months: 60,
     size: 'large',
-    photo_url: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=800&q=80',
+    // Несколько фото через «|» — так же, как в ячейке Google Таблицы
+    photo_url: [
+      'https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1574158622682-e40e69881006?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1543852786-1cf6624b9987?auto=format&fit=crop&w=800&h=1100&q=80',
+    ].join('|'),
     description:
       'Крупный, статный кот с характером настоящего аристократа. Жил в квартире, но хозяйка уехала и оставила его в подъезде. Спокойный, не дерёт мебель, любит сидеть на подоконнике и наблюдать за городом. Лучше всего подойдёт взрослым людям или семье без маленьких детей.',
     character_tags: 'Спокойный|Домашний|Самостоятельный|Привит',
@@ -315,7 +334,13 @@ const MOCK_PETS = [
     sex: 'female',
     age_months: 18,
     size: 'medium',
-    photo_url: 'https://images.unsplash.com/photo-1495360010541-f48722b34f7d?auto=format&fit=crop&w=800&q=80',
+    // Несколько фото через «|» — так же, как в ячейке Google Таблицы
+    photo_url: [
+      'https://images.unsplash.com/photo-1495360010541-f48722b34f7d?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1533743983669-94fa5c4338ec?auto=format&fit=crop&w=800&h=1100&q=80',
+      'https://images.unsplash.com/photo-1513245543132-31f507417b26?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1592194996308-7b43878e84a6?auto=format&fit=crop&w=800&q=80',
+    ].join('|'),
     description:
       'Луну подобрали после того, как она повредила лапу во дворе на Сарыарке. Лапу вылечили, хромоты почти не осталось. Нежная, разговорчивая кошка, любит спать рядом с человеком. С другими кошками держит дистанцию, поэтому лучше будет единственным питомцем.',
     character_tags: 'Нежная|Разговорчивая|Приучена к лотку',
@@ -480,6 +505,13 @@ function shelterFromPet(p) {
 }
 
 // Приводит строку из таблицы к нужным типам (в Google Таблице всё приходит строками)
+// photo_url → массив ссылок. Разделители: «|», перенос строки или запятая с пробелом
+function parsePhotos(value) {
+  const list = Array.isArray(value) ? value : String(value ?? '').split(/\s*\|\s*|\r?\n|,\s+/);
+  const photos = list.map((url) => String(url ?? '').trim()).filter(Boolean);
+  return photos.length > 0 ? photos : [FALLBACK_PHOTO];
+}
+
 // Совместимость: YES / NO / UNKNOWN (а также TRUE / FALSE, да / нет) → 'yes' | 'no' | 'unknown'
 function toTriState(v) {
   if (v === true || v === 1) return 'yes';
@@ -495,8 +527,11 @@ function normalizePet(row) {
   const num = (v) => Number(String(v ?? '0').replace(/\s/g, '')) || 0;
   const compatKids = toTriState(row.good_with_kids);
   const compatAnimals = toTriState(row.good_with_animals);
+  const photos = parsePhotos(row.photos || row.photo_url);
   return {
     ...row,
+    photos,
+    photo_url: photos[0], // обложка для каталога, коллажа и слайдера
     age_months: num(row.age_months),
     shelter_verified: bool(row.shelter_verified),
     is_registered: bool(row.is_registered),
@@ -782,6 +817,8 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 
 /* ---------- Фото и свечение ---------- */
 .ap-photo { aspect-ratio: 4 / 3; }
+.ap-photo-count { background-color: rgba(44, 42, 41, 0.55); color: #FFFFFF; }
+.ap-thumb-active { box-shadow: 0 0 0 2px #FAF7F2, 0 0 0 4px #F26A4B; opacity: 1; }
 .ap-portrait { aspect-ratio: 4 / 5; }
 .ap-photo-fade {
   background: linear-gradient(to bottom, rgba(44, 42, 41, 0.50) 0%, rgba(44, 42, 41, 0.16) 45%, rgba(44, 42, 41, 0) 75%);
@@ -1112,7 +1149,8 @@ function buildCollageSlots(pets) {
   const real = pets.slice(0, COLLAGE_SLOTS).map((pet) => ({ pet, isFiller: false }));
   const usedIds = new Set(real.map((slot) => slot.pet.id));
   const usedPhotos = new Set(real.map((slot) => slot.pet.photo_url));
-  const fillers = MOCK_PETS.filter((p) => !usedIds.has(p.id) && !usedPhotos.has(p.photo_url))
+  const fillers = MOCK_PETS.map(normalizePet)
+    .filter((p) => !usedIds.has(p.id) && !usedPhotos.has(p.photo_url))
     .slice(0, COLLAGE_SLOTS - real.length)
     .map((pet) => ({ pet, isFiller: true }));
   return [...real, ...fillers];
@@ -1458,6 +1496,12 @@ function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
           </span>
         </div>
         <FavoriteButton active={isFavorite} onToggle={() => onToggleFavorite(pet)} className="absolute right-3 top-3" />
+        {pet.photos && pet.photos.length > 1 && (
+          <span className="ap-photo-count pointer-events-none absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold backdrop-blur-sm">
+            <Camera className="h-3.5 w-3.5" />
+            {pet.photos.length} фото
+          </span>
+        )}
       </div>
 
       <div className="flex flex-1 flex-col gap-3 p-5">
@@ -1560,6 +1604,120 @@ function CompatTile({ icon: Icon, label, value }) {
   );
 }
 
+/* ---------- Фотогалерея в карточке питомца ---------- */
+// Главный кадр: размытая копия фото на фоне + само фото целиком (object-contain),
+// поэтому вертикальные снимки с телефона показываются без обрезки.
+function PetGallery({ pet }) {
+  const photos = pet.photos && pet.photos.length ? pet.photos : [pet.photo_url || FALLBACK_PHOTO];
+  const [index, setIndex] = useState(0);
+  const touchStartX = useRef(null);
+  const thumbRefs = useRef([]);
+  const many = photos.length > 1;
+
+  const goTo = useCallback(
+    (next, method) => {
+      const photoIndex = (next + photos.length) % photos.length;
+      setIndex(photoIndex);
+      trackEvent('pet_photo_switched', { id: pet.id, photoIndex, method });
+    },
+    [photos.length, pet.id]
+  );
+
+  // Листание стрелками клавиатуры
+  useEffect(() => {
+    if (!many) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'ArrowRight') goTo(index + 1, 'keyboard');
+      if (e.key === 'ArrowLeft') goTo(index - 1, 'keyboard');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [many, index, goTo]);
+
+  // Активная миниатюра всегда видна в ленте
+  useEffect(() => {
+    thumbRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  }, [index]);
+
+  const onTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const onTouchEnd = (e) => {
+    if (touchStartX.current === null || !many) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(dx) > 40) goTo(index + (dx < 0 ? 1 : -1), 'swipe');
+  };
+
+  const current = photos[index];
+
+  return (
+    <div>
+      <div
+        className="relative h-72 w-full overflow-hidden rounded-2xl ap-sand-deep sm:h-96"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
+        <PhotoImg key={`bg-${index}`} src={current} alt="" eager className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-xl" />
+        <PhotoImg
+          key={`fg-${index}`}
+          src={current}
+          alt={many ? `${pet.name} — фото ${index + 1} из ${photos.length}` : pet.name}
+          eager
+          className="ap-toast relative z-10 h-full w-full object-contain"
+        />
+
+        {many && (
+          <>
+            <button
+              type="button"
+              onClick={() => goTo(index - 1, 'arrow')}
+              aria-label="Предыдущее фото"
+              className="absolute left-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full ap-glass text-stone-700 ap-shadow-soft transition-all duration-300 hover:scale-105 active:scale-95"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => goTo(index + 1, 'arrow')}
+              aria-label="Следующее фото"
+              className="absolute right-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full ap-glass text-stone-700 ap-shadow-soft transition-all duration-300 hover:scale-105 active:scale-95"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+            <span className="ap-photo-count absolute bottom-3 right-3 z-20 rounded-full px-2.5 py-1 text-xs font-bold backdrop-blur-sm">
+              {index + 1} / {photos.length}
+            </span>
+          </>
+        )}
+      </div>
+
+      {many && (
+        <div className="ap-no-scrollbar mt-3 flex gap-2 overflow-x-auto p-1" role="tablist" aria-label="Фотографии питомца">
+          {photos.map((src, i) => (
+            <button
+              key={`${src}-${i}`}
+              ref={(el) => {
+                thumbRefs.current[i] = el;
+              }}
+              type="button"
+              role="tab"
+              aria-selected={i === index}
+              aria-label={`Фото ${i + 1}`}
+              onClick={() => i !== index && goTo(i, 'thumb')}
+              className={`h-16 w-16 shrink-0 cursor-pointer overflow-hidden rounded-xl transition-all duration-300 ${
+                i === index ? 'ap-thumb-active' : 'opacity-70 hover:opacity-100'
+              }`}
+            >
+              <PhotoImg src={src} alt="" className="h-full w-full object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleFavorite }) {
   const [revealed, setRevealed] = useState(false);
 
@@ -1585,16 +1743,18 @@ function PetDetailsModal({ pet, onClose, onDonate, notify, isFavorite, onToggleF
 
   return (
     <Modal open={!!pet} onClose={onClose} labelledBy="pet-modal-title">
-      <div className="ap-photo relative w-full ap-sand-deep">
-        <PhotoImg src={pet.photo_url} alt={pet.name} eager className="h-full w-full object-cover" />
-        <div className="ap-photo-fade pointer-events-none absolute inset-x-0 top-0 h-1/2" />
+      <div className="relative flex min-h-16 items-center px-4 pr-28 pt-3 sm:px-6">
         {pet.shelter_verified && (
-          <span className="absolute left-3 top-5 inline-flex items-center gap-1 rounded-full ap-sage px-3 py-1 text-xs font-bold ap-shadow-soft sm:top-3">
-            <ShieldCheck className="h-3.5 w-3.5" />
+          <span className="inline-flex items-center gap-1 rounded-full ap-sage px-3 py-1 text-xs font-bold">
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
             Проверен: {pet.shelter_name}
           </span>
         )}
         <FavoriteButton active={isFavorite} onToggle={() => onToggleFavorite(pet)} className="absolute right-16 top-3" />
+      </div>
+
+      <div className="px-4 sm:px-6">
+        <PetGallery key={pet.id} pet={pet} />
       </div>
 
       <div className="space-y-6 p-5 pb-8 sm:p-6">
