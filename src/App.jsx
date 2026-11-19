@@ -2576,10 +2576,10 @@ function DonateModal({ target, onClose, notify, onPaymentIntent }) {
   const base = { shelter: shelter.shelter_name, pet_id: pet?.id || null, pet_name: pet?.name || null };
 
   const copyKaspi = async () => {
+    onPaymentIntent?.(target); // сразу: человек может уйти в Kaspi раньше, чем закончится копирование
     const ok = await copyToClipboard(shelter.kaspi_phone);
     notify(ok ? 'Номер Kaspi скопирован' : 'Не удалось скопировать');
     trackEvent('kaspi_phone_copied', base);
-    onPaymentIntent?.(target);
   };
 
   return (
@@ -2714,10 +2714,16 @@ function ThanksModal({ target, onClose, notify }) {
   const { shelter, pet } = target;
 
   const share = async () => {
-    const url = window.location.origin;
-    const text = pet
-      ? `${pet.name} ищет дом — посмотрите на AstanaPets`
-      : 'Питомцы из проверенных приютов Астаны — AstanaPets';
+    const url = `${window.location.origin}/`;
+    // Сообщение для мессенджеров: короткие абзацы и призыв в конце, ссылка добавится последней строкой
+    const intro = pet
+      ? `Привет! 🐾 Знакомься: это ${pet.name} из приюта «${shelter.shelter_name}», ${pet.sex === 'female' ? 'она' : 'он'} ищет дом.`
+      : 'Привет! 🐾 Смотри, какой сайт — «Лапки Астаны»: там кошки и собаки из проверенных приютов Астаны ищут дом.';
+    const text = [
+      intro,
+      'Можно выбрать питомца или помочь приюту переводом через Kaspi — даже 1 000 ₸ это корм на день для нескольких животных.',
+      'Загляни, вдруг там твой будущий друг 👇',
+    ].join('\n\n');
     trackEvent('thanks_share_clicked', { shelter: shelter.shelter_name });
     try {
       if (navigator.share) {
@@ -2727,7 +2733,7 @@ function ThanksModal({ target, onClose, notify }) {
     } catch {
       return; // человек закрыл окно «Поделиться»
     }
-    const ok = await copyToClipboard(`${text}: ${url}`);
+    const ok = await copyToClipboard(`${text}\n${url}`);
     notify(ok ? 'Ссылка скопирована — отправьте её друзьям' : 'Не удалось скопировать ссылку');
   };
 
