@@ -1100,6 +1100,11 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .ap-drawer-panel { animation: ap-slide-left 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .ap-backdrop { animation: ap-fade 0.25s ease both; }
 .ap-modal-panel { max-height: 92vh; animation: ap-slide-up 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+/* Плавное закрытие (0.24 с — как CLOSE_MS в коде): затемнение гаснет, анкета уезжает вниз, шторка — вправо */
+.ap-backdrop.is-closing { animation: ap-fade-out 0.24s ease both; }
+.ap-modal-panel.is-closing { animation: ap-pop-out 0.24s cubic-bezier(0.4, 0, 1, 1) both; }
+.ap-drawer-panel.is-closing { animation: ap-slide-right-out 0.24s cubic-bezier(0.4, 0, 1, 1) both; }
+@media (max-width: 639px) { .ap-modal-panel.is-closing { animation-name: ap-sheet-down; } }
 .ap-toast { animation: ap-slide-up 0.25s ease both; }
 
 /* Микро-анимации */
@@ -1111,6 +1116,10 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 @keyframes ap-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes ap-slide-left { from { transform: translateX(100%); } to { transform: translateX(0); } }
 @keyframes ap-slide-up { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes ap-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes ap-pop-out { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(24px) scale(0.97); } }
+@keyframes ap-sheet-down { from { transform: translateY(0); } to { transform: translateY(100%); } }
+@keyframes ap-slide-right-out { from { transform: translateX(0); } to { transform: translateX(100%); } }
 @keyframes ap-pop { 0% { transform: scale(1); } 35% { transform: scale(1.35); } 60% { transform: scale(0.9); } 100% { transform: scale(1); } }
 @keyframes ap-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 
@@ -1398,29 +1407,78 @@ function FavoriteButton({ active, onToggle, className = '' }) {
   );
 }
 
+// Блокировка прокрутки страницы под открытым окном. overflow:hidden Safari на iPhone/iPad игнорирует,
+// поэтому «замораживаем» body на текущей позиции и возвращаем прокрутку туда же после закрытия.
+let scrollLocks = 0;
+let lockedScrollY = 0;
+
+function useScrollLock(active) {
+  useEffect(() => {
+    if (!active) return undefined;
+    const body = document.body;
+    if (scrollLocks === 0) {
+      lockedScrollY = window.scrollY;
+      Object.assign(body.style, { position: 'fixed', top: `-${lockedScrollY}px`, left: '0', right: '0', width: '100%', overflow: 'hidden' });
+    }
+    scrollLocks += 1;
+    return () => {
+      scrollLocks -= 1;
+      if (scrollLocks === 0) {
+        Object.assign(body.style, { position: '', top: '', left: '', right: '', width: '', overflow: '' });
+        // instant: в index.css включена плавная прокрутка, а здесь нужно вернуться на место мгновенно
+        window.scrollTo({ top: lockedScrollY, left: 0, behavior: 'instant' });
+      }
+    };
+  }, [active]);
+}
+
+// Плавное закрытие: сначала проигрываем анимацию ухода, потом сообщаем родителю
+const CLOSE_MS = 240;
+
+function useAnimatedClose(open, onClose) {
+  const [closing, setClosing] = useState(false);
+  const timer = useRef(null);
+  useEffect(() => {
+    setClosing(false);
+    return () => window.clearTimeout(timer.current);
+  }, [open]);
+  const requestClose = useCallback(() => {
+    if (closing) return;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) {
+      onClose();
+      return;
+    }
+    setClosing(true);
+    timer.current = window.setTimeout(onClose, CLOSE_MS);
+  }, [closing, onClose]);
+  return [closing, requestClose];
+}
+
 function Modal({ open, onClose, children, labelledBy }) {
+  const [closing, requestClose] = useAnimatedClose(open, onClose);
+  useScrollLock(open);
   useEffect(() => {
     if (!open) return undefined;
-    const onKey = (e) => e.key === 'Escape' && onClose();
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const onKey = (e) => e.key === 'Escape' && requestClose();
     window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [open, onClose]);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, requestClose]);
 
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby={labelledBy}>
-      <div className="ap-backdrop ap-overlay absolute inset-0 backdrop-blur-sm" onClick={onClose} />
-      <div className="ap-modal-panel relative flex w-full flex-col overflow-hidden rounded-t-3xl ap-modal-bg ap-shadow-soft sm:max-w-lg sm:rounded-3xl">
+      <div className={`ap-backdrop ap-overlay absolute inset-0 backdrop-blur-sm ${closing ? 'is-closing' : ''}`} onClick={requestClose} />
+      <div
+        className={`ap-modal-panel relative flex w-full flex-col overflow-hidden rounded-t-3xl ap-modal-bg ap-shadow-soft sm:max-w-lg sm:rounded-3xl ${
+          closing ? 'is-closing' : ''
+        }`}
+      >
         <div className="absolute left-1/2 top-2 z-10 h-1.5 w-12 -translate-x-1/2 rounded-full ap-glass ap-shadow-soft sm:hidden" />
         <button
           type="button"
-          onClick={onClose}
+          onClick={requestClose}
           aria-label="Закрыть"
           className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full ap-glass ap-text-strong ap-shadow-soft backdrop-blur-sm transition-all duration-300 hover:scale-105"
         >
@@ -1513,25 +1571,22 @@ const KASPI_ICON_SRC = '/icons/kaspi.png'; // белый знак Kaspi на п�
 const WHATSAPP_ICON_SRC = '/icons/whatsapp.svg';
 
 function SideDrawer({ open, onClose, theme, onThemeChange }) {
+  const [closing, requestClose] = useAnimatedClose(open, onClose);
+  useScrollLock(open);
   useEffect(() => {
     if (!open) return undefined;
-    const onKey = (e) => e.key === 'Escape' && onClose();
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const onKey = (e) => e.key === 'Escape' && requestClose();
     window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [open, onClose]);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, requestClose]);
 
   if (!open) return null;
 
   const goTo = (id) => {
     trackEvent('menu_nav_clicked', { target: id });
-    onClose();
-    // ждём, пока шторка закроется и вернётся прокрутка страницы
-    window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+    requestClose();
+    // ждём, пока шторка уедет и вернётся прокрутка страницы
+    window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), CLOSE_MS + 60);
   };
 
   const THEMES = [
@@ -1541,8 +1596,12 @@ function SideDrawer({ open, onClose, theme, onThemeChange }) {
 
   return (
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Меню">
-      <div className="ap-backdrop ap-overlay absolute inset-0 backdrop-blur-sm" onClick={onClose} />
-      <aside className="ap-drawer-panel ap-modal-bg absolute right-0 top-0 flex h-full w-full max-w-sm flex-col overflow-y-auto border-l ap-line">
+      <div className={`ap-backdrop ap-overlay absolute inset-0 backdrop-blur-sm ${closing ? 'is-closing' : ''}`} onClick={requestClose} />
+      <aside
+        className={`ap-drawer-panel ap-modal-bg absolute right-0 top-0 flex h-full w-[85%] max-w-sm flex-col overflow-y-auto overscroll-contain border-l ap-line ${
+          closing ? 'is-closing' : ''
+        }`}
+      >
         <div className="flex items-center justify-between gap-3 border-b ap-line-soft px-5 py-4">
           <div className="flex items-center gap-2.5">
             <AppLogo className="h-9 w-9" />
@@ -1550,7 +1609,7 @@ function SideDrawer({ open, onClose, theme, onThemeChange }) {
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             aria-label="Закрыть меню"
             className="flex h-10 w-10 items-center justify-center rounded-full border-2 ap-chip-idle transition-all duration-300 active:scale-95"
           >
