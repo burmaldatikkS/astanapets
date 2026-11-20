@@ -893,9 +893,12 @@ async function fetchData() {
 // Строка приюта из таблицы → нужные типы
 function normalizeShelter(row) {
   const bool = (v) => v === true || v === 'TRUE' || v === 'true' || v === '1' || v === 1;
+  // Явное «FALSE/нет» в shelter_verified прячет приют целиком; пустая ячейка — не прячет (просто нет значка «Проверен»)
+  const verifiedRaw = cleanText(row.shelter_verified).toLowerCase();
   return {
     shelter_name: cleanText(row.shelter_name),
     shelter_verified: bool(row.shelter_verified),
+    shelter_hidden: ['false', '0', 'нет', 'no', 'off'].includes(verifiedRaw),
     shelter_instagram: cleanText(row.shelter_instagram),
     reports_url: cleanText(row.reports_url),
     curator_name: cleanText(row.curator_name),
@@ -3795,7 +3798,19 @@ export default function App() {
     }
   }, [favorites]);
 
-  const availablePets = useMemo(() => pets.filter((p) => !p.status || p.status === 'available'), [pets]);
+  // Приюты с явным shelter_verified = FALSE прячем полностью: и карточку, и все их анкеты
+  const hiddenShelterKeys = useMemo(() => {
+    const set = new Set();
+    (shelterRows || []).forEach((sh) => {
+      if (sh.shelter_hidden) set.add(shelterKey(sh.shelter_name));
+    });
+    return set;
+  }, [shelterRows]);
+
+  const availablePets = useMemo(
+    () => pets.filter((p) => (!p.status || p.status === 'available') && !hiddenShelterKeys.has(shelterKey(p.shelter_name))),
+    [pets, hiddenShelterKeys]
+  );
 
   // Ссылка вида ?pet=pet-536: после загрузки каталога сразу открываем эту анкету
   const deepLinkHandled = useRef(false);
@@ -3831,7 +3846,9 @@ export default function App() {
     });
 
     if (shelterRows && shelterRows.length > 0) {
-      return shelterRows.map((sh) => ({ ...sh, petsCount: counts.get(shelterKey(sh.shelter_name)) || 0 }));
+      return shelterRows
+        .filter((sh) => !sh.shelter_hidden)
+        .map((sh) => ({ ...sh, petsCount: counts.get(shelterKey(sh.shelter_name)) || 0 }));
     }
 
     const map = new Map();
