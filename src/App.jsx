@@ -2280,6 +2280,68 @@ function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
 
 /* ---------- Детальная карточка: секции в стиле профиля Petfinder ---------- */
 
+// Карусель каталога: карточки в один ряд, листаются стрелками ‹ › (на широком экране — по бокам) и свайпом.
+// Карточка: 85% ширины на телефоне, 2 в ряд на планшете, 3 — на компьютере. Стрелка видна, только если есть куда листать.
+function PetCarousel({ children, resetKey }) {
+  const trackRef = useRef(null);
+  const [edges, setEdges] = useState({ start: true, end: true });
+  const count = React.Children.count(children);
+
+  const updateEdges = useCallback(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    setEdges({ start: el.scrollLeft <= 4, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 4 });
+  }, []);
+
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return undefined;
+    el.scrollTo({ left: 0, behavior: 'instant' }); // фильтры сменились — показываем список с начала
+    updateEdges();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateEdges) : null;
+    observer?.observe(el);
+    return () => observer?.disconnect();
+  }, [resetKey, count, updateEdges]);
+
+  const scrollByPage = (dir) => {
+    const el = trackRef.current;
+    if (!el) return;
+    const card = el.firstElementChild;
+    const step = card ? card.getBoundingClientRect().width + 24 : el.clientWidth;
+    const perPage = Math.max(1, Math.round(el.clientWidth / step));
+    el.scrollBy({ left: dir * step * perPage, behavior: 'smooth' });
+    trackEvent('catalog_carousel_scrolled', { direction: dir > 0 ? 'next' : 'prev' });
+  };
+
+  const arrow = 'ap-card absolute top-1/2 z-10 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border ap-line ap-text-main ap-shadow-soft transition-all duration-300 hover:scale-105 md:flex';
+
+  return (
+    <div className="relative">
+      <div
+        ref={trackRef}
+        onScroll={updateEdges}
+        className="ap-no-scrollbar -mx-4 flex snap-x snap-mandatory gap-6 overflow-x-auto scroll-px-4 px-4 pb-2 pt-1"
+      >
+        {React.Children.map(children, (child) => (
+          <div className="flex w-[85%] shrink-0 snap-start sm:w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-3rem)/3)]">
+            <div className="flex w-full flex-col [&>article]:flex-1">{child}</div>
+          </div>
+        ))}
+      </div>
+      {!edges.start && (
+        <button type="button" onClick={() => scrollByPage(-1)} aria-label="Предыдущие питомцы" className={`${arrow} -left-3 xl:-left-16`}>
+          <ChevronLeft className="h-6 w-6" />
+        </button>
+      )}
+      {!edges.end && (
+        <button type="button" onClick={() => scrollByPage(1)} aria-label="Следующие питомцы" className={`${arrow} -right-3 xl:-right-16`}>
+          <ChevronRight className="h-6 w-6" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 function DetailSection({ title, children }) {
   return (
     <section className="border-t ap-line pt-5">
@@ -3549,7 +3611,7 @@ export default function App() {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                <PetCarousel resetKey={JSON.stringify(filters) + favoritesOnly}>
                   {shown.map((pet) => (
                     <PetCard
                       key={pet.id}
@@ -3560,7 +3622,7 @@ export default function App() {
                       onToggleFavorite={toggleFavorite}
                     />
                   ))}
-                </div>
+                </PetCarousel>
               )}
             </div>
           </div>
