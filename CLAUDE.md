@@ -5,7 +5,8 @@
 
 ## Стек и где что лежит
 
-- Vite + React 18 + Tailwind CSS v4 + lucide-react. Почти весь сайт — `src/App.jsx` (компоненты, стили в `GLOBAL_CSS`, тестовые `MOCK_PETS`).
+- Vite + React 18 + Tailwind CSS v4 + lucide-react. Почти весь сайт — `src/App.jsx` (компоненты, стили в `GLOBAL_CSS`, базовые тестовые `MOCK_PETS` — 6 шт.).
+- `src/demoMocks.js` — доп. тестовые питомцы (`EXTRA_DEMO_PETS`, приюты «Теремок»/«СтопОтлов»). Подключаются в каталог (`CATALOG_MOCKS`) ТОЛЬКО при `DEMO_BUILD || import.meta.env.DEV` — то есть в демо и при локальном `vite` dev. На боевом `main` в каталог не попадают.
 - `src/sheetSource.js` — загрузка Google Таблицы (`SHEET_ID`): сначала opensheet.elk.sh, при сбое — Google напрямую (gviz).
 - `scripts/snapshot-catalog.mjs` — при `npm run build` сохраняет таблицу в `public/data/catalog.json` (в git не хранится).
   Сайт берёт снимок или кэш браузера (что свежее), только если таблица недоступна совсем.
