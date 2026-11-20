@@ -20,6 +20,7 @@
   `character_tags` (через `|`, порядок = важность), `shelter_name`, контакты куратора, булевы TRUE/FALSE, совместимость YES/NO/UNKNOWN,
   `fundraising_goal_kzt` / `fundraising_collected_kzt` / `fundraising_purpose`, `created_at`.
 - Лист `shelters`: реквизиты и контакты приюта; поля из него перекрывают строки питомцев (см. `mergePetWithShelter`).
+- `shelter_verified`: `TRUE` — значок «Проверен»; явное `FALSE`/`нет`/`0` — приют и ВСЕ его анкеты скрыты с сайта (`shelter_hidden`); пустая ячейка — приют виден, но без значка.
 - WhatsApp: если `curator_whatsapp` пуст — берётся `curator_phone`; номер нормализуется (8… → 7…).
 - Таблица открыта «всем по ссылке» — любой с её ID видит ВСЕ листы и столбцы. Внутренние данные туда не класть.
 

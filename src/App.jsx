@@ -205,7 +205,7 @@ const MOCK_PETS = [
     description:
       'Мусю принесли волонтёры из подвала на Левом берегу вместе с братьями — их уже разобрали, а она всё ждёт. Ласковая, мурчит при первом прикосновении, приучена к лотку и когтеточке. Немного стесняется в первые дни, но быстро становится «хвостиком» хозяина.',
     character_tags: 'Ласковая|Приучена к лотку|Игривая',
-    shelter_name: 'Я живой',
+    shelter_name: 'Я Живой',
     shelter_verified: true,
     shelter_instagram: 'https://instagram.com/',
     reports_url: 'https://instagram.com/',
@@ -330,7 +330,7 @@ const MOCK_PETS = [
     description:
       'Маленькая (около 7 кг) и очень преданная собачка. Живёт на передержке в квартире, поэтому привыкла к домашней жизни: не шумит, терпит до прогулки, спит на своей лежанке. Отлично ладит с кошками и детьми. Идеальна для квартиры в городе.',
     character_tags: 'Компактная|Тихая|Ладит с кошками|Знает поводок',
-    shelter_name: 'Я живой',
+    shelter_name: 'Я Живой',
     shelter_verified: true,
     shelter_instagram: 'https://instagram.com/',
     reports_url: 'https://instagram.com/',
@@ -456,7 +456,7 @@ const MOCK_PETS = [
     description:
       'Ласка — нежная кошечка, которая любит сидеть на руках и мурчать. Приучена к лотку, здорова и готова к переезду.',
     character_tags: 'Ласковая|Приучена к лотку|Мурлыка',
-    shelter_name: 'Я Живой',
+    shelter_name: 'Теремок',
     shelter_verified: true,
     shelter_instagram: 'https://instagram.com/',
     reports_url: 'https://instagram.com/',
@@ -481,7 +481,7 @@ const MOCK_PETS = [
     fundraising_goal_kzt: 0,
     fundraising_collected_kzt: 0,
     fundraising_purpose: '',
-    donation_usage: 'Корм, лечение и содержание животных',
+    donation_usage: 'Лечение, вакцинация и тёплая передержка',
     created_at: '2026-11-10',
   },
   {
@@ -576,7 +576,7 @@ const MOCK_PETS = [
     description:
       'Арчи — весёлый щенок-непоседа. Вырастет до среднего размера. Любит всех вокруг и с радостью бежит знакомиться.',
     character_tags: 'Щенок|Дружелюбный|Активный',
-    shelter_name: 'Я Живой',
+    shelter_name: 'Теремок',
     shelter_verified: true,
     shelter_instagram: 'https://instagram.com/',
     reports_url: 'https://instagram.com/',
@@ -656,7 +656,7 @@ const MOCK_PETS = [
     description:
       'Байкал — статный и умный пёс с густой шерстью. Спокойный, преданный, хорошо переносит холод. Мечтает о своём дворе.',
     character_tags: 'Преданный|Спокойный|Для двора',
-    shelter_name: 'Zverohelp',
+    shelter_name: 'СтопОтлов',
     shelter_verified: true,
     shelter_instagram: 'https://instagram.com/',
     reports_url: 'https://instagram.com/',
@@ -681,7 +681,7 @@ const MOCK_PETS = [
     fundraising_goal_kzt: 0,
     fundraising_collected_kzt: 0,
     fundraising_purpose: '',
-    donation_usage: 'Корм, лечение и содержание животных',
+    donation_usage: 'Отлов, стерилизация и возврат уличных животных',
     created_at: '2026-10-05',
   },
   {
@@ -696,7 +696,7 @@ const MOCK_PETS = [
     description:
       'Тиша — солидный рыжий кот, который уже всё повидал и теперь хочет только тёплый плед и заботу. Самостоятельный и чистоплотный.',
     character_tags: 'Самостоятельный|Чистоплотный|Солидный',
-    shelter_name: 'Я Живой',
+    shelter_name: 'СтопОтлов',
     shelter_verified: true,
     shelter_instagram: 'https://instagram.com/',
     reports_url: 'https://instagram.com/',
@@ -893,9 +893,12 @@ async function fetchData() {
 // Строка приюта из таблицы → нужные типы
 function normalizeShelter(row) {
   const bool = (v) => v === true || v === 'TRUE' || v === 'true' || v === '1' || v === 1;
+  // Явное «FALSE/нет» в shelter_verified прячет приют целиком; пустая ячейка — не прячет (просто нет значка «Проверен»)
+  const verifiedRaw = cleanText(row.shelter_verified).toLowerCase();
   return {
     shelter_name: cleanText(row.shelter_name),
     shelter_verified: bool(row.shelter_verified),
+    shelter_hidden: ['false', '0', 'нет', 'no', 'off'].includes(verifiedRaw),
     shelter_instagram: cleanText(row.shelter_instagram),
     reports_url: cleanText(row.reports_url),
     curator_name: cleanText(row.curator_name),
@@ -3795,7 +3798,19 @@ export default function App() {
     }
   }, [favorites]);
 
-  const availablePets = useMemo(() => pets.filter((p) => !p.status || p.status === 'available'), [pets]);
+  // Приюты с явным shelter_verified = FALSE прячем полностью: и карточку, и все их анкеты
+  const hiddenShelterKeys = useMemo(() => {
+    const set = new Set();
+    (shelterRows || []).forEach((sh) => {
+      if (sh.shelter_hidden) set.add(shelterKey(sh.shelter_name));
+    });
+    return set;
+  }, [shelterRows]);
+
+  const availablePets = useMemo(
+    () => pets.filter((p) => (!p.status || p.status === 'available') && !hiddenShelterKeys.has(shelterKey(p.shelter_name))),
+    [pets, hiddenShelterKeys]
+  );
 
   // Ссылка вида ?pet=pet-536: после загрузки каталога сразу открываем эту анкету
   const deepLinkHandled = useRef(false);
@@ -3831,7 +3846,9 @@ export default function App() {
     });
 
     if (shelterRows && shelterRows.length > 0) {
-      return shelterRows.map((sh) => ({ ...sh, petsCount: counts.get(shelterKey(sh.shelter_name)) || 0 }));
+      return shelterRows
+        .filter((sh) => !sh.shelter_hidden)
+        .map((sh) => ({ ...sh, petsCount: counts.get(shelterKey(sh.shelter_name)) || 0 }));
     }
 
     const map = new Map();
