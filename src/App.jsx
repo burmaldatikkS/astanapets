@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { loadSheet } from './sheetSource.js';
+import { DEMO_BUILD } from './demoConfig.js';
 import {
   PawPrint,
   ShieldCheck,
@@ -99,7 +100,7 @@ export function trackEvent(eventName, payload = {}) {
     /* консоль недоступна — игнорируем */
   }
 
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || DEMO_BUILD) return; // демо-версия не портит статистику основного сайта
 
   try {
     if (typeof window.ym === 'function' && YM_COUNTER_ID) {
@@ -507,6 +508,7 @@ async function readSnapshot() {
  *   status   — 'ok' | 'empty' (таблица загрузилась, но активных нет) | 'error' (нет ни данных, ни кэша)
  */
 async function fetchData() {
+  if (DEMO_BUILD) return { pets: MOCK_PETS, shelters: null, source: 'mock', via: null, status: 'ok' };
   const [petsSheet, sheltersSheet] = await Promise.all([loadSheet('pets'), loadSheet('shelters')]);
   const freshPets = petsSheet?.rows || null;
   const freshShelters = sheltersSheet?.rows || null;
@@ -965,6 +967,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .ap-catalog-block { background-color: #EAE6DF; }      /* каталог — нейтральный песочный без желтизны */
 .ap-forest-block { background-color: #283618; color: #FDFCFB; }  /* «Помочь приютам» — глубокий хвойный */
 .ap-footer { background-color: #F3F1ED; }
+.ap-demo-banner { background-color: #E36243; color: #FFFFFF; }
 .ap-footer-paw { color: #E36243; opacity: 0.12; }
 
 /* ---------- Текст ---------- */
@@ -3026,6 +3029,28 @@ async function sharePet({ pet, shelterName, notify, source }) {
   notify(ok ? 'Ссылка скопирована — отправьте её друзьям' : 'Не удалось скопировать ссылку');
 }
 
+// Плашка демо-версии над шапкой сайта
+function DemoBanner() {
+  return (
+    <div className="ap-demo-banner">
+      <div className="mx-auto flex max-w-6xl flex-col items-start gap-2 px-4 py-2.5 text-sm font-semibold sm:flex-row sm:items-center sm:justify-between">
+        <p className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 shrink-0" />
+          Демо-версия для приютов: питомцы и контакты здесь вымышленные.
+        </p>
+        <button
+          type="button"
+          onClick={openAuthorTelegram}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-sm font-bold transition-colors duration-300 hover:bg-white/30"
+        >
+          Хочу такой сайт для приюта
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function SheltersSection({ shelters, onDonate }) {
   return (
     <section id="help" className="ap-forest-block scroll-mt-20">
@@ -3328,6 +3353,20 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [theme, setTheme] = useState(loadTheme);
   const [thanksTarget, setThanksTarget] = useState(null);
+
+  // Демо: вымышленные контакты не открываем (это могут быть чужие реальные номера), показываем подсказку
+  useEffect(() => {
+    if (!DEMO_BUILD) return undefined;
+    const guard = (e) => {
+      const link = e.target.closest?.('a[href^="https://wa.me"], a[href^="tel:"], a[href*="kaspi"], a[href*="instagram.com"]');
+      if (!link) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setToast('Это демо-версия: здесь откроются контакты или Kaspi вашего приюта');
+    };
+    document.addEventListener('click', guard, true);
+    return () => document.removeEventListener('click', guard, true);
+  }, []);
   const paymentIntentRef = useRef(null);
 
   // Человек нажал «Оплатить через Kaspi Pay» или скопировал номер → ушёл в Kaspi → вернулся на вкладку:
@@ -3529,6 +3568,7 @@ export default function App() {
   return (
     <div className={`ap-root ap-clip-x w-full min-h-screen ap-text-main antialiased ${theme === 'dark' ? 'ap-dark' : ''}`}>
       <GlobalStyles />
+      {DEMO_BUILD && <DemoBanner />}
       <Header favoritesCount={favorites.length} favoritesOnly={favoritesOnly} onToggleFavorites={toggleFavoritesView} onOpenMenu={openMenu} />
       <main>
         <Hero petsCount={availablePets.length} sheltersCount={activeSheltersCount} previewPets={availablePets} onOpenPet={openPet} />
