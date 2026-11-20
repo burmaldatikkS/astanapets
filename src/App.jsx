@@ -2283,6 +2283,15 @@ function PetCard({ pet, onOpen, onDonate, isFavorite, onToggleFavorite }) {
 
 /* ---------- Детальная карточка: секции в стиле профиля Petfinder ---------- */
 
+// Каталог делится на ряды по 6 анкет; в каждом ряду видно по 3 (на компьютере), остальные — пролистыванием
+const CAROUSEL_ROW_SIZE = 6;
+
+function chunk(items, size) {
+  const rows = [];
+  for (let i = 0; i < items.length; i += size) rows.push(items.slice(i, i + size));
+  return rows;
+}
+
 // Карусель каталога: карточки в один ряд, листаются стрелками ‹ › (на широком экране — по бокам) и свайпом.
 // Карточка: 85% ширины на телефоне, 2 в ряд на планшете, 3 — на компьютере. Стрелка видна, только если есть куда листать.
 function PetCarousel({ children, resetKey }) {
@@ -3651,18 +3660,23 @@ export default function App() {
                   </button>
                 </div>
               ) : (
-                <PetCarousel resetKey={JSON.stringify(filters) + favoritesOnly}>
-                  {shown.map((pet) => (
-                    <PetCard
-                      key={pet.id}
-                      pet={pet}
-                      onOpen={openPet}
-                      onDonate={openDonate}
-                      isFavorite={favorites.includes(pet.id)}
-                      onToggleFavorite={toggleFavorite}
-                    />
+                // Ряды-карусели по CAROUSEL_ROW_SIZE анкет: 7-я и дальше переезжают в следующий ряд
+                <div className="space-y-8">
+                  {chunk(shown, CAROUSEL_ROW_SIZE).map((row, i) => (
+                    <PetCarousel key={i} resetKey={JSON.stringify(filters) + favoritesOnly}>
+                      {row.map((pet) => (
+                        <PetCard
+                          key={pet.id}
+                          pet={pet}
+                          onOpen={openPet}
+                          onDonate={openDonate}
+                          isFavorite={favorites.includes(pet.id)}
+                          onToggleFavorite={toggleFavorite}
+                        />
+                      ))}
+                    </PetCarousel>
                   ))}
-                </PetCarousel>
+                </div>
               )}
             </div>
           </div>
