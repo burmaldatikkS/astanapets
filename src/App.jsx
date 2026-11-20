@@ -205,7 +205,7 @@ const MOCK_PETS = [
     description:
       'Мусю принесли волонтёры из подвала на Левом берегу вместе с братьями — их уже разобрали, а она всё ждёт. Ласковая, мурчит при первом прикосновении, приучена к лотку и когтеточке. Немного стесняется в первые дни, но быстро становится «хвостиком» хозяина.',
     character_tags: 'Ласковая|Приучена к лотку|Игривая',
-    shelter_name: 'Я живой',
+    shelter_name: 'Я Живой',
     shelter_verified: true,
     shelter_instagram: 'https://instagram.com/',
     reports_url: 'https://instagram.com/',
@@ -330,7 +330,7 @@ const MOCK_PETS = [
     description:
       'Маленькая (около 7 кг) и очень преданная собачка. Живёт на передержке в квартире, поэтому привыкла к домашней жизни: не шумит, терпит до прогулки, спит на своей лежанке. Отлично ладит с кошками и детьми. Идеальна для квартиры в городе.',
     character_tags: 'Компактная|Тихая|Ладит с кошками|Знает поводок',
-    shelter_name: 'Я живой',
+    shelter_name: 'Я Живой',
     shelter_verified: true,
     shelter_instagram: 'https://instagram.com/',
     reports_url: 'https://instagram.com/',
@@ -456,7 +456,7 @@ const MOCK_PETS = [
     description:
       'Ласка — нежная кошечка, которая любит сидеть на руках и мурчать. Приучена к лотку, здорова и готова к переезду.',
     character_tags: 'Ласковая|Приучена к лотку|Мурлыка',
-    shelter_name: 'Я Живой',
+    shelter_name: 'Теремок',
     shelter_verified: true,
     shelter_instagram: 'https://instagram.com/',
     reports_url: 'https://instagram.com/',
@@ -481,7 +481,7 @@ const MOCK_PETS = [
     fundraising_goal_kzt: 0,
     fundraising_collected_kzt: 0,
     fundraising_purpose: '',
-    donation_usage: 'Корм, лечение и содержание животных',
+    donation_usage: 'Лечение, вакцинация и тёплая передержка',
     created_at: '2026-11-10',
   },
   {
@@ -576,7 +576,7 @@ const MOCK_PETS = [
     description:
       'Арчи — весёлый щенок-непоседа. Вырастет до среднего размера. Любит всех вокруг и с радостью бежит знакомиться.',
     character_tags: 'Щенок|Дружелюбный|Активный',
-    shelter_name: 'Я Живой',
+    shelter_name: 'Теремок',
     shelter_verified: true,
     shelter_instagram: 'https://instagram.com/',
     reports_url: 'https://instagram.com/',
@@ -656,7 +656,7 @@ const MOCK_PETS = [
     description:
       'Байкал — статный и умный пёс с густой шерстью. Спокойный, преданный, хорошо переносит холод. Мечтает о своём дворе.',
     character_tags: 'Преданный|Спокойный|Для двора',
-    shelter_name: 'Zverohelp',
+    shelter_name: 'СтопОтлов',
     shelter_verified: true,
     shelter_instagram: 'https://instagram.com/',
     reports_url: 'https://instagram.com/',
@@ -681,7 +681,7 @@ const MOCK_PETS = [
     fundraising_goal_kzt: 0,
     fundraising_collected_kzt: 0,
     fundraising_purpose: '',
-    donation_usage: 'Корм, лечение и содержание животных',
+    donation_usage: 'Отлов, стерилизация и возврат уличных животных',
     created_at: '2026-10-05',
   },
   {
@@ -696,7 +696,7 @@ const MOCK_PETS = [
     description:
       'Тиша — солидный рыжий кот, который уже всё повидал и теперь хочет только тёплый плед и заботу. Самостоятельный и чистоплотный.',
     character_tags: 'Самостоятельный|Чистоплотный|Солидный',
-    shelter_name: 'Я Живой',
+    shelter_name: 'СтопОтлов',
     shelter_verified: true,
     shelter_instagram: 'https://instagram.com/',
     reports_url: 'https://instagram.com/',
